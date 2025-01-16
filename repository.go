@@ -30,7 +30,7 @@ func (repo *Repository) GetAllAttendance() ([]Attendance, error) {
 }
 
 func (repo *Repository) UpdateAttendance(attendance *Attendance) error {
-	return repo.DB.Model(&Attendance{}).Where("id = $", attendance.ID).
+	return repo.DB.Model(&Attendance{}).Where("id = ?", attendance.ID).
 		Updates(map[string]interface{}{
 			"date":      attendance.Date,
 			"check_in":  attendance.CheckIn,
@@ -47,15 +47,15 @@ func (repo *Repository) GetGirinofReport(id string, date time.Time) (*GirinofRep
 
 	err := repo.DB.Raw(`
 		SELECT engineer,
-			SUM(CASE WHEN check_in > $ THEN 1 ELSE 0 END) AS delays,
-			SUM(CASE WHEN check_out < $ THEN 1 ELSE 0 END) AS early_departures
+			SUM(CASE WHEN check_in > date_trunc('day', date) + interval '09:00:00' THEN 1 ELSE 0 END) AS total_delays,
+			SUM(CASE WHEN check_out < date_trunc('day', date) + interval '17:00:00' THEN 1 ELSE 0 END) AS total_early_departures
 		FROM 
 			attendances
 		WHERE 
-			engineer = $ AND date = $
+			engineer = ? AND date = date_trunc('day', ?)
 		GROUP BY 
 			engineer
-	`, CheckIn, CheckOut, id, date).Scan(&report).Error
+	`, id, date).Scan(&report).Error
 
 	if err != nil {
 		return nil, err
@@ -69,15 +69,17 @@ func (repo *Repository) GetMonthlyReport(id string, startDate, endDate time.Time
 
 	err := repo.DB.Raw(`
 		SELECT engineer,
-			SUM(CASE WHEN check_in > $ THEN 1 ELSE 0 END) AS total_delays,
-			SUM(CASE WHEN check_out < $ THEN 1 ELSE 0 END) AS total_early_departures
+			COUNT(*) AS total_days_present,
+			SUM(EXTRACT(EPOCH FROM check_out - check_in) / 3600) AS total_overtime_hours,
+			SUM(CASE WHEN check_in > date_trunc('day', date) + interval '09:00:00' THEN 1 ELSE 0 END) AS total_delays,
+			SUM(CASE WHEN check_out < date_trunc('day', date) + interval '17:00:00' THEN 1 ELSE 0 END) AS total_early_departures
 		FROM 
 			attendances
 		WHERE 
-			engineer = $ AND date BETWEEN $ AND $
+			engineer = ? AND date BETWEEN date_trunc('day', ?) AND date_trunc('day', ?)
 		GROUP BY 
 			engineer
-	`, CheckIn, CheckOut, id, startDate, endDate).Scan(&report).Error
+	`, id, startDate, endDate).Scan(&report).Error
 
 	if err != nil {
 		return nil, err
@@ -97,7 +99,7 @@ func (repo *Repository) CalculateSalary(id string, startDate, endDate time.Time)
 		FROM 
 			attendances
 		WHERE 
-			engineer = $ AND date BETWEEN $ AND $
+			engineer = ? AND date BETWEEN ? AND ?
 		GROUP BY 
 			engineer
 	`, id, startDate, endDate).Scan(&report).Error
