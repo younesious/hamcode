@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -29,7 +30,7 @@ func (repo *Repository) GetAllAttendance() ([]Attendance, error) {
 }
 
 func (repo *Repository) UpdateAttendance(attendance *Attendance) error {
-	return repo.DB.Model(&Attendance{}).Where("id = ?", attendance.ID).
+	return repo.DB.Model(&Attendance{}).Where("id = $", attendance.ID).
 		Updates(map[string]interface{}{
 			"date":      attendance.Date,
 			"check_in":  attendance.CheckIn,
@@ -39,4 +40,72 @@ func (repo *Repository) UpdateAttendance(attendance *Attendance) error {
 
 func (repo *Repository) DeleteAttendance(id uint) error {
 	return repo.DB.Delete(&Attendance{}, id).Error
+}
+
+func (repo *Repository) GetGirinofReport(id string, date time.Time) (*GirinofReport, error) {
+	var report GirinofReport
+
+	err := repo.DB.Raw(`
+		SELECT engineer,
+			SUM(CASE WHEN check_in > $ THEN 1 ELSE 0 END) AS delays,
+			SUM(CASE WHEN check_out < $ THEN 1 ELSE 0 END) AS early_departures
+		FROM 
+			attendances
+		WHERE 
+			engineer = $ AND date = $
+		GROUP BY 
+			engineer
+	`, CheckIn, CheckOut, id, date).Scan(&report).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &report, nil
+}
+
+func (repo *Repository) GetMonthlyReport(id string, startDate, endDate time.Time) (*GirinofReport, error) {
+	var report GirinofReport
+
+	err := repo.DB.Raw(`
+		SELECT engineer,
+			SUM(CASE WHEN check_in > $ THEN 1 ELSE 0 END) AS total_delays,
+			SUM(CASE WHEN check_out < $ THEN 1 ELSE 0 END) AS total_early_departures
+		FROM 
+			attendances
+		WHERE 
+			engineer = $ AND date BETWEEN $ AND $
+		GROUP BY 
+			engineer
+	`, CheckIn, CheckOut, id, startDate, endDate).Scan(&report).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &report, nil
+}
+
+func (repo *Repository) CalculateSalary(id string, startDate, endDate time.Time) (*SalaryReport, error) {
+	var report SalaryReport
+
+	err := repo.DB.Raw(`
+		SELECT engineer,
+			COUNT(*) AS total_days_present,
+			SUM(EXTRACT(EPOCH FROM CASE WHEN check_out > '18:00:00' THEN check_out - '18:00:00' ELSE '00:00:00' END) / 3600) AS total_overtime_hours,
+			SUM(EXTRACT(EPOCH FROM CASE WHEN check_in > '09:00:00' THEN check_in - '09:00:00' ELSE '00:00:00' END) / 3600) AS total_delay_hours
+		FROM 
+			attendances
+		WHERE 
+			engineer = $ AND date BETWEEN $ AND $
+		GROUP BY 
+			engineer
+	`, id, startDate, endDate).Scan(&report).Error
+	if err != nil {
+		return nil, err
+	}
+
+	report.TotalSalary = (float64(report.TotalDaysPresent) * DailyRate) + (report.TotalOvertimeHours * OvertimeRate) - (report.TotalDelayHours * DelayPenalty)
+
+	return &report, nil
 }

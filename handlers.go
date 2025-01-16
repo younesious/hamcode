@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 var repo *Repository
@@ -80,11 +81,7 @@ func UpdateAttendanceHandler(w http.ResponseWriter, r *http.Request) {
 	if input.CheckOut != nil {
 		attendance.CheckOut = *input.CheckOut
 	}
-	/*
-		attendance.Date = input.Date
-		attendance.CheckIn = input.CheckIn
-		attendance.CheckOut = input.CheckOut
-	*/
+
 	if err := repo.UpdateAttendance(attendance); err != nil {
 		http.Error(w, "Failed to update attendance", http.StatusInternalServerError)
 		return
@@ -106,4 +103,72 @@ func DeleteAttendanceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func GetGirinofReportHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Engineer ID is required", http.StatusBadRequest)
+		return
+	}
+
+	date, err := time.Parse("2006-01-02", r.PathValue("date"))
+	if err != nil {
+		http.Error(w, "Invalid Date", http.StatusBadRequest)
+		return
+	}
+
+	report, err := repo.GetGirinofReport(id, date)
+	if err != nil {
+		http.Error(w, "Failed to generate report", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(report)
+}
+
+func GetMonthlyReportHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Engineer ID is required", http.StatusBadRequest)
+		return
+	}
+
+	startDate, err := time.Parse("2006-01-02", r.PathValue("start_date"))
+	if err != nil {
+		http.Error(w, "Invalid Date", http.StatusBadRequest)
+		return
+	}
+	endDate, err := time.Parse("2006-01-02", r.PathValue("end_date"))
+	if err != nil {
+		http.Error(w, "Invalid Date", http.StatusBadRequest)
+		return
+	}
+
+	report, err := repo.GetMonthlyReport(id, startDate, endDate)
+	if err != nil {
+		http.Error(w, "Failed to generate monthly report", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(report)
+}
+
+func GetSalaryHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Engineer ID is required", http.StatusBadRequest)
+		return
+	}
+
+	now := time.Now()
+	thirtyDaysAgo := now.AddDate(0, 0, -30)
+
+	salary, err := repo.CalculateSalary(id, thirtyDaysAgo, now)
+	if err != nil {
+		http.Error(w, "Failed to calculate salary", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(salary)
 }

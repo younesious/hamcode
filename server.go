@@ -24,4 +24,7 @@ func RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /attendance/{id}", UpdateAttendanceHandler)
 	mux.HandleFunc("DELETE /attendance/{id}", DeleteAttendanceHandler)
 	mux.HandleFunc("GET /attendance", GetAllAttendanceHandler)
+	mux.HandleFunc("GET /girinof/{id}/{date}", GetGirinofReportHandler)
+	mux.HandleFunc("GET /monthly_report/{id}/{start_date}/{end_date}", GetMonthlyReportHandler)
+	mux.HandleFunc("GET /salary/{id}", GetSalaryHandler)
 }
