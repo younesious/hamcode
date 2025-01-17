@@ -37,24 +37,34 @@ type Attendance struct {
 	UpdatedAt time.Time
 }
 
-func (a *Attendance) MarshalJSON() ([]byte, error) {
-	return json.Marshal(&struct {
-		ID        uint   `json:"ID"`
-		Engineer  string `json:"Engineer"`
-		Date      string `json:"Date"`
-		CheckIn   string `json:"CheckIn"`
-		CheckOut  string `json:"CheckOut"`
-		CreatedAt string `json:"CreatedAt"`
-		UpdatedAt string `json:"UpdatedAt"`
+func (a *Attendance) UnmarshalJSON(data []byte) error {
+	type Alias Attendance
+
+	aux := &struct {
+		Date     string `json:"date"`
+		CheckIn  string `json:"check_in"`
+		CheckOut string `json:"check_out"`
+		*Alias
 	}{
-		ID:        a.ID,
-		Engineer:  a.Engineer,
-		Date:      a.Date.Format("2006-01-02"),
-		CheckIn:   a.CheckIn.UTC().Format("2006-01-02 15:04:05"),
-		CheckOut:  a.CheckOut.UTC().Format("2006-01-02 15:04:05"),
-		CreatedAt: a.CreatedAt.UTC().Format("2006-01-02 15:04:05"),
-		UpdatedAt: a.UpdatedAt.UTC().Format("2006-01-02 15:04:05"),
-	})
+		Alias: (*Alias)(a),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	var err error
+	if a.Date, err = time.Parse("2006-01-02", aux.Date); err != nil {
+		return err
+	}
+	if a.CheckIn, err = time.Parse("2006-01-02 15:04:05", aux.CheckIn); err != nil {
+		return err
+	}
+	if a.CheckOut, err = time.Parse("2006-01-02 15:04:05", aux.CheckOut); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type Input struct {
@@ -63,14 +73,38 @@ type Input struct {
 	CheckOut *time.Time `json:"check_out"`
 }
 
-func (i *Input) MarshalJSON() ([]byte, error) {
-	return json.Marshal(&struct {
-		Date     string `json:"date"`
-		CheckIn  string `json:"check_in,omitempty"`
-		CheckOut string `json:"check_out,omitempty"`
-	}{
-		Date:     i.Date.UTC().Format("2006-01-02"),
-		CheckIn:  i.CheckIn.UTC().Format("2006-01-02 15:04:05"),
-		CheckOut: i.CheckOut.UTC().Format("2006-01-02 15:04:05"),
-	})
+func (i *Input) UnmarshalJSON(data []byte) error {
+	aux := struct {
+		Date     *string `json:"date"`
+		CheckIn  *string `json:"check_in"`
+		CheckOut *string `json:"check_out"`
+	}{}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	if aux.Date != nil {
+		parsedDate, err := time.Parse("2006-01-02", *aux.Date)
+		if err != nil {
+			return err
+		}
+		i.Date = &parsedDate
+	}
+	if aux.CheckIn != nil {
+		parsedCheckIn, err := time.Parse("2006-01-02 15:04:05", *aux.CheckIn)
+		if err != nil {
+			return err
+		}
+		i.CheckIn = &parsedCheckIn
+	}
+	if aux.CheckOut != nil {
+		parsedCheckOut, err := time.Parse("2006-01-02 15:04:05", *aux.CheckOut)
+		if err != nil {
+			return err
+		}
+		i.CheckOut = &parsedCheckOut
+	}
+
+	return nil
 }
