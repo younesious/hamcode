@@ -13,18 +13,32 @@ var repo *Repository
 func CreateAttendanceHandler(w http.ResponseWriter, r *http.Request) {
 	var attendance Attendance
 	if err := json.NewDecoder(r.Body).Decode(&attendance); err != nil {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
+		http.Error(w, "Invalid input format", http.StatusBadRequest)
 		return
 	}
 
 	log.Printf("Decoded attendance: %+v\n", attendance)
 
-	if err := repo.CreateAttendance(&attendance); err != nil {
-		http.Error(w, "Failed to create attendance", http.StatusInternalServerError)
+	if attendance.Date.IsZero() {
+		http.Error(w, "Missing required field: date", http.StatusBadRequest)
 		return
 	}
 
+	_, err := repo.GetProgrammerByID(attendance.ProgrammerID)
+	if err != nil {
+		http.Error(w, "Programmer not found! Please hire the programmer first.", http.StatusNotFound)
+		return
+	}
+
+	if err := repo.CreateAttendance(&attendance); err != nil {
+		errorMessage := "Failed to create attendance: " + err.Error()
+		http.Error(w, errorMessage, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(attendance)
 }
 
 func GetAllAttendanceHandler(w http.ResponseWriter, r *http.Request) {
@@ -38,51 +52,64 @@ func GetAllAttendanceHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAttendanceHandler(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+	pid, err := strconv.Atoi(r.PathValue("programmer_id"))
+	if err != nil || pid <= 0 {
+		http.Error(w, "Invalid Programmer ID", http.StatusBadRequest)
 		return
 	}
 
-	attendance, err := repo.GetAttendance(uint(id))
+	attendances, err := repo.GetAttendancesByProgrammer(uint(pid))
 	if err != nil {
-		http.Error(w, "Attendance not found", http.StatusNotFound)
+		http.Error(w, "Error retrieving attendance records", http.StatusInternalServerError)
 		return
 	}
 
-	json.NewEncoder(w).Encode(attendance)
+	if len(attendances) == 0 {
+		http.Error(w, "No attendance records found for the given Programmer ID", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(attendances); err != nil {
+		http.Error(w, "Failed to encode attendance records", http.StatusInternalServerError)
+		return
+	}
 }
 
 func UpdateAttendanceHandler(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
+	id, err := strconv.Atoi(r.PathValue("programmer_id"))
+	if err != nil || id <= 0 {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
 
-	attendance, err := repo.GetAttendance(uint(id))
+	_, err = repo.GetProgrammerByID(uint(id))
 	if err != nil {
-		http.Error(w, "Attendance not found", http.StatusNotFound)
+		http.Error(w, "Programmer not found", http.StatusNotFound)
 		return
 	}
 
-	var input Input
+	var input AttendanceInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
 	}
 
-	if input.Date != nil {
-		attendance.Date = *input.Date
-	}
-	if input.CheckIn != nil {
-		attendance.CheckIn = *input.CheckIn
-	}
-	if input.CheckOut != nil {
-		attendance.CheckOut = *input.CheckOut
+	// var attendance Attendance
+	existingAttendance, exist := repo.IsExistDateAndProgrammerID(uint(id), input.Date)
+	if !exist {
+		http.Error(w, "Programmer with the given date not recorded. Please use CreateAttendanceHandler to create it!", http.StatusBadRequest)
+		return
 	}
 
-	if err := repo.UpdateAttendance(attendance); err != nil {
+	if input.CheckIn != nil {
+		existingAttendance.CheckIn = *input.CheckIn
+	}
+	if input.CheckOut != nil {
+		existingAttendance.CheckOut = *input.CheckOut
+	}
+
+	if err := repo.UpdateAttendance(existingAttendance); err != nil {
 		http.Error(w, "Failed to update attendance", http.StatusInternalServerError)
 		return
 	}
@@ -91,9 +118,9 @@ func UpdateAttendanceHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteAttendanceHandler(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+	id, err := strconv.Atoi(r.PathValue("programmer_id"))
+	if err != nil || id <= 0 {
+		http.Error(w, "Invalid programmer ID", http.StatusBadRequest)
 		return
 	}
 
@@ -102,13 +129,42 @@ func DeleteAttendanceHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func DeleteOneDayAttendanceHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("programmer_id"))
+	if err != nil || id <= 0 {
+		http.Error(w, "Invalid programmer ID", http.StatusBadRequest)
+		return
+	}
+
+	date, err := time.Parse("2006-01-02", r.PathValue("date"))
+	if err != nil {
+		http.Error(w, "Invalid Date", http.StatusBadRequest)
+		return
+	}
+
+	if err := repo.DeleteOneDayAttendance(uint(id), date); err != nil {
+		http.Error(w, "Failed to delete attendance", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+
+	if err := repo.DeleteAttendance(uint(id)); err != nil {
+		http.Error(w, "Failed to delete attendance", http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
+
 }
 
 func GetGirinofReportHandler(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	id := r.PathValue("programmer_id")
 	if id == "" {
-		http.Error(w, "Engineer ID is required", http.StatusBadRequest)
+		http.Error(w, "Programmer ID is required", http.StatusBadRequest)
 		return
 	}
 
@@ -128,9 +184,9 @@ func GetGirinofReportHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetMonthlyReportHandler(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	id := r.PathValue("programmer_id")
 	if id == "" {
-		http.Error(w, "Engineer ID is required", http.StatusBadRequest)
+		http.Error(w, "Programmer ID is required", http.StatusBadRequest)
 		return
 	}
 
@@ -155,9 +211,9 @@ func GetMonthlyReportHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetSalaryHandler(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	id := r.PathValue("programmer_id")
 	if id == "" {
-		http.Error(w, "Engineer ID is required", http.StatusBadRequest)
+		http.Error(w, "Programmer ID is required", http.StatusBadRequest)
 		return
 	}
 
@@ -171,4 +227,23 @@ func GetSalaryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(salary)
+}
+
+func CreateProgrammerHandler(w http.ResponseWriter, r *http.Request) {
+	var input ProgrammerInput
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, "Invalid input format", http.StatusBadRequest)
+		return
+	}
+
+	programmer, err := repo.CreateProgrammer(input.Name)
+	if err != nil {
+		http.Error(w, "Failed to create programmer", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(programmer)
 }

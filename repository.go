@@ -17,10 +17,16 @@ func (repo *Repository) CreateAttendance(attendance *Attendance) error {
 	return repo.DB.Debug().Create(attendance).Error
 }
 
-func (repo *Repository) GetAttendance(id uint) (*Attendance, error) {
-	var attendance Attendance
-	err := repo.DB.First(&attendance, id).Error
-	return &attendance, err
+func (repo *Repository) GetAttendancesByProgrammer(pid uint) ([]Attendance, error) {
+	var attendances []Attendance
+
+	err := repo.DB.Preload("Programmer").
+		Where("programmer_id = ?", pid).
+		Order("date DESC").
+		Limit(12).
+		Find(&attendances).Error
+
+	return attendances, err
 }
 
 func (repo *Repository) GetAllAttendance() ([]Attendance, error) {
@@ -38,47 +44,64 @@ func (repo *Repository) UpdateAttendance(attendance *Attendance) error {
 		}).Error
 }
 
-func (repo *Repository) DeleteAttendance(id uint) error {
-	return repo.DB.Delete(&Attendance{}, id).Error
+func (repo *Repository) DeleteAttendance(pid uint) error {
+	return repo.DB.Where("programmer_id = ?", pid).Delete(&Attendance{}).Error
 }
 
+func (repo *Repository) DeleteOneDayAttendance(pid uint, date time.Time) error {
+	return repo.DB.Where("programmer_id = ? AND date = ?", pid, date).Delete(&Attendance{}).Error
+}
 func (repo *Repository) GetGirinofReport(id string, date time.Time) (*GirinofReport, error) {
 	var report GirinofReport
 
 	err := repo.DB.Raw(`
-		SELECT engineer,
-			SUM(CASE WHEN check_in > date_trunc('day', date) + interval '09:00:00' THEN 1 ELSE 0 END) AS total_delays,
-			SUM(CASE WHEN check_out < date_trunc('day', date) + interval '17:00:00' THEN 1 ELSE 0 END) AS total_early_departures
+		SELECT 
+			programmer_id,
+			SUM(EXTRACT(EPOCH FROM (CASE WHEN check_in > date_trunc('day', date::timestamp) + interval '09:00:00' 
+				THEN check_in - (date_trunc('day', date::timestamp) + interval '09:00:00') 
+				ELSE interval '00:00:00' END)) / 60) AS total_delay_minutes,
+			SUM(EXTRACT(EPOCH FROM (CASE WHEN check_out < date_trunc('day', date::timestamp) + interval '17:00:00' 
+				THEN (date_trunc('day', date::timestamp) + interval '17:00:00') - check_out 
+				ELSE interval '00:00:00' END)) / 60) AS total_early_departure_minutes
 		FROM 
 			attendances
 		WHERE 
-			engineer = ? AND date = date_trunc('day', ?)
+			programmer_id = ? AND date = date_trunc('day', ?::timestamp)
 		GROUP BY 
-			engineer
+			programmer_id
 	`, id, date).Scan(&report).Error
 
 	if err != nil {
 		return nil, err
 	}
 
+	log.Printf("\n\n\nhere is result: %+v", report)
+
 	return &report, nil
 }
 
-func (repo *Repository) GetMonthlyReport(id string, startDate, endDate time.Time) (*GirinofReport, error) {
-	var report GirinofReport
+func (repo *Repository) GetMonthlyReport(id string, startDate, endDate time.Time) (*MonthlySummary, error) {
+	var report MonthlySummary
 
 	err := repo.DB.Raw(`
-		SELECT engineer,
+		SELECT 
+			programmer_id,
 			COUNT(*) AS total_days_present,
-			SUM(EXTRACT(EPOCH FROM check_out - check_in) / 3600) AS total_overtime_hours,
-			SUM(CASE WHEN check_in > date_trunc('day', date) + interval '09:00:00' THEN 1 ELSE 0 END) AS total_delays,
-			SUM(CASE WHEN check_out < date_trunc('day', date) + interval '17:00:00' THEN 1 ELSE 0 END) AS total_early_departures
+			SUM(EXTRACT(EPOCH FROM (CASE WHEN check_out > date_trunc('day', date::timestamp) + interval '17:00:00' 
+				THEN check_out - (date_trunc('day', date::timestamp) + interval '17:00:00') 
+				ELSE interval '00:00:00' END)) / 60) AS total_overtime_minutes,
+			SUM(EXTRACT(EPOCH FROM (CASE WHEN check_in > date_trunc('day', date::timestamp) + interval '09:00:00' 
+				THEN check_in - (date_trunc('day', date::timestamp) + interval '09:00:00') 
+				ELSE interval '00:00:00' END)) / 60) AS total_delay_minutes,
+			SUM(EXTRACT(EPOCH FROM (CASE WHEN check_out < date_trunc('day', date::timestamp) + interval '17:00:00' 
+				THEN (date_trunc('day', date::timestamp) + interval '17:00:00') - check_out 
+				ELSE interval '00:00:00' END)) / 60) AS total_early_departure_minutes
 		FROM 
 			attendances
 		WHERE 
-			engineer = ? AND date BETWEEN date_trunc('day', ?) AND date_trunc('day', ?)
+			programmer_id = ? AND date BETWEEN date_trunc('day', ?::timestamp) AND date_trunc('day', ?::timestamp)
 		GROUP BY 
-			engineer
+			programmer_id
 	`, id, startDate, endDate).Scan(&report).Error
 
 	if err != nil {
@@ -92,22 +115,61 @@ func (repo *Repository) CalculateSalary(id string, startDate, endDate time.Time)
 	var report SalaryReport
 
 	err := repo.DB.Raw(`
-		SELECT engineer,
+		SELECT 
+			p.name,
 			COUNT(*) AS total_days_present,
-			SUM(EXTRACT(EPOCH FROM CASE WHEN check_out > '18:00:00' THEN check_out - '18:00:00' ELSE '00:00:00' END) / 3600) AS total_overtime_hours,
-			SUM(EXTRACT(EPOCH FROM CASE WHEN check_in > '09:00:00' THEN check_in - '09:00:00' ELSE '00:00:00' END) / 3600) AS total_delay_hours
+			SUM(EXTRACT(EPOCH FROM (CASE WHEN a.check_out > date_trunc('day', a.date::timestamp) + interval '17:00:00' 
+				THEN a.check_out - (date_trunc('day', a.date::timestamp) + interval '17:00:00') 
+				ELSE interval '00:00:00' END)) / 60) AS total_overtime_minutes,
+			SUM(EXTRACT(EPOCH FROM (CASE WHEN a.check_in > date_trunc('day', a.date::timestamp) + interval '09:00:00' 
+				THEN a.check_in - (date_trunc('day', a.date::timestamp) + interval '09:00:00') 
+				ELSE interval '00:00:00' END)) / 60) AS total_delay_minutes,
+			SUM(EXTRACT(EPOCH FROM (CASE WHEN a.check_out < date_trunc('day', a.date::timestamp) + interval '17:00:00' 
+				THEN (date_trunc('day', a.date::timestamp) + interval '17:00:00') - a.check_out 
+				ELSE interval '00:00:00' END)) / 60) AS total_early_departure_minutes
 		FROM 
-			attendances
+			attendances a
+		JOIN public.programmers p on p.id = a.programmer_id
 		WHERE 
-			engineer = ? AND date BETWEEN ? AND ?
+			a.programmer_id = ? AND a.date BETWEEN date_trunc('day', ?::timestamp) AND date_trunc('day', ?::timestamp)
 		GROUP BY 
-			engineer
+			p.name
 	`, id, startDate, endDate).Scan(&report).Error
+
 	if err != nil {
 		return nil, err
 	}
 
-	report.TotalSalary = (float64(report.TotalDaysPresent) * DailyRate) + (report.TotalOvertimeHours * OvertimeRate) - (report.TotalDelayHours * DelayPenalty)
+	report.TotalSalary = (float64(report.TotalDaysPresent) * DailyRate) + (float64(report.TotalOvertimeMinutes) * OvertimeRate) -
+		(float64(report.TotalDelayMinutes) * DelayPenalty)
 
 	return &report, nil
+}
+
+func (repo *Repository) CreateProgrammer(name string) (*Programmer, error) {
+	programmer := Programmer{
+		Name: name,
+	}
+	if err := repo.DB.Create(&programmer).Error; err != nil {
+		return nil, err
+	}
+	return &programmer, nil
+}
+
+func (repo *Repository) GetProgrammerByID(id uint) (*Programmer, error) {
+	var programmer Programmer
+	err := repo.DB.First(&programmer, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &programmer, nil
+}
+
+func (repo *Repository) IsExistDateAndProgrammerID(id uint, date time.Time) (*Attendance, bool) {
+	var attendance Attendance
+	if err := repo.DB.Where("programmer_id = ? AND date = ?", id, date).First(&attendance).Error; err != nil {
+		return nil, false
+	}
+
+	return &attendance, true
 }
