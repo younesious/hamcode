@@ -38,8 +38,8 @@ type SalaryReport struct {
 
 type Attendance struct {
 	ID           uint      `gorm:"primaryKey"`
-	ProgrammerID uint      `gorm:"uniqueIndex:idx_programmer_date;not null"`
-	Date         time.Time `gorm:"uniqueIndex:idx_programmer_date;not null"`
+	ProgrammerID uint      `gorm:"uniqueIndex:idx_programmer_date,unique,priority:1;not null"`
+	Date         time.Time `gorm:"uniqueIndex:idx_programmer_date,unique,priority:2;not null"`
 	CheckIn      time.Time
 	CheckOut     time.Time
 	CreatedAt    time.Time

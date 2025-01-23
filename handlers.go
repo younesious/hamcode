@@ -151,14 +151,6 @@ func DeleteOneDayAttendanceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusAccepted)
-
-	if err := repo.DeleteAttendance(uint(id)); err != nil {
-		http.Error(w, "Failed to delete attendance", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-
 }
 
 func GetGirinofReportHandler(w http.ResponseWriter, r *http.Request) {
@@ -198,6 +190,11 @@ func GetMonthlyReportHandler(w http.ResponseWriter, r *http.Request) {
 	endDate, err := time.Parse("2006-01-02", r.PathValue("end_date"))
 	if err != nil {
 		http.Error(w, "Invalid Date", http.StatusBadRequest)
+		return
+	}
+
+	if endDate.Before(startDate) {
+		http.Error(w, "End date must be after start date", http.StatusBadRequest)
 		return
 	}
 
