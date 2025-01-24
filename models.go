@@ -55,6 +55,16 @@ type Programmer struct {
 	UpdatedAt time.Time `gorm:"autoUpdateTime"`
 }
 
+type AttendanceInput struct {
+	Date     time.Time  `json:"date"`
+	CheckIn  *time.Time `json:"check_in"`
+	CheckOut *time.Time `json:"check_out"`
+}
+
+type ProgrammerInput struct {
+	Name string `json:"name"`
+}
+
 func (a *Attendance) UnmarshalJSON(data []byte) error {
 	type Alias Attendance
 
@@ -104,13 +114,7 @@ func (a Attendance) MarshalJSON() ([]byte, error) {
 	})
 }
 
-type AttendanceInput struct {
-	Date     time.Time  `json:"date"`
-	CheckIn  *time.Time `json:"check_in"`
-	CheckOut *time.Time `json:"check_out"`
-}
-
-func (i *AttendanceInput) UnmarshalJSON(data []byte) error {
+func (ai *AttendanceInput) UnmarshalJSON(data []byte) error {
 	aux := struct {
 		Date     string  `json:"date"`
 		CheckIn  *string `json:"check_in"`
@@ -129,26 +133,22 @@ func (i *AttendanceInput) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("invalid date format, expected YYYY-MM-DD: %v", err)
 	}
-	i.Date = parsedDate
+	ai.Date = parsedDate
 
 	if aux.CheckIn != nil {
 		parsedCheckIn, err := time.Parse("2006-01-02 15:04:05", *aux.CheckIn)
 		if err != nil {
 			return fmt.Errorf("invalid check_in format, expected YYYY-MM-DD HH:mm:ss: %v", err)
 		}
-		i.CheckIn = &parsedCheckIn
+		ai.CheckIn = &parsedCheckIn
 	}
 	if aux.CheckOut != nil {
 		parsedCheckOut, err := time.Parse("2006-01-02 15:04:05", *aux.CheckOut)
 		if err != nil {
 			return fmt.Errorf("invalid check_out format, expected YYYY-MM-DD HH:mm:ss: %v", err)
 		}
-		i.CheckOut = &parsedCheckOut
+		ai.CheckOut = &parsedCheckOut
 	}
 
 	return nil
-}
-
-type ProgrammerInput struct {
-	Name string `json:"name"`
 }
