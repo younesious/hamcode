@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -17,10 +16,13 @@ func CreateAttendanceHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Decoded attendance: %+v\n", attendance)
-
 	if attendance.Date.IsZero() {
 		http.Error(w, "Missing required field: date", http.StatusBadRequest)
+		return
+	}
+
+	if !attendance.CheckOut.IsZero() && !attendance.CheckIn.IsZero() && attendance.CheckOut.Before(attendance.CheckIn) {
+		http.Error(w, "CheckOut cannot be before CheckIn", http.StatusBadRequest)
 		return
 	}
 
@@ -108,6 +110,10 @@ func UpdateAttendanceHandler(w http.ResponseWriter, r *http.Request) {
 	if input.CheckOut != nil {
 		existingAttendance.CheckOut = *input.CheckOut
 	}
+	if input.CheckIn != nil && input.CheckOut != nil && input.CheckOut.Before(*input.CheckIn) {
+		http.Error(w, "CheckOut cannot be before CheckIn", http.StatusBadRequest)
+		return
+	}
 
 	if err := repo.UpdateAttendance(existingAttendance); err != nil {
 		http.Error(w, "Failed to update attendance", http.StatusInternalServerError)
@@ -121,6 +127,11 @@ func DeleteAttendanceHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("programmer_id"))
 	if err != nil || id <= 0 {
 		http.Error(w, "Invalid programmer ID", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := repo.GetProgrammerByID(uint(id)); err != nil {
+		http.Error(w, "Programmer not found", http.StatusNotFound)
 		return
 	}
 
@@ -142,6 +153,11 @@ func DeleteOneDayAttendanceHandler(w http.ResponseWriter, r *http.Request) {
 	date, err := time.Parse("2006-01-02", r.PathValue("date"))
 	if err != nil {
 		http.Error(w, "Invalid Date", http.StatusBadRequest)
+		return
+	}
+
+	if _, exists := repo.IsExistDateAndProgrammerID(uint(id), date); !exists {
+		http.Error(w, "No attendance record found for the given date", http.StatusNotFound)
 		return
 	}
 
@@ -182,23 +198,23 @@ func GetMonthlyReportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	startDate, err := time.Parse("2006-01-02", r.PathValue("start_date"))
+	checkIn, err := time.Parse("2006-01-02", r.PathValue("checkin"))
 	if err != nil {
-		http.Error(w, "Invalid Date", http.StatusBadRequest)
+		http.Error(w, "Invalid CheckIn date", http.StatusBadRequest)
 		return
 	}
-	endDate, err := time.Parse("2006-01-02", r.PathValue("end_date"))
+	checkOut, err := time.Parse("2006-01-02", r.PathValue("checkout"))
 	if err != nil {
-		http.Error(w, "Invalid Date", http.StatusBadRequest)
+		http.Error(w, "Invalid CheckOut date", http.StatusBadRequest)
 		return
 	}
 
-	if endDate.Before(startDate) {
-		http.Error(w, "End date must be after start date", http.StatusBadRequest)
+	if checkOut.Before(checkIn) {
+		http.Error(w, "CheckOut cannot be before CheckIn", http.StatusBadRequest)
 		return
 	}
 
-	report, err := repo.GetMonthlyReport(id, startDate, endDate)
+	report, err := repo.GetMonthlyReport(id, checkIn, checkOut)
 	if err != nil {
 		http.Error(w, "Failed to generate monthly report", http.StatusInternalServerError)
 		return

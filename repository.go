@@ -51,6 +51,7 @@ func (repo *Repository) DeleteAttendance(pid uint) error {
 func (repo *Repository) DeleteOneDayAttendance(pid uint, date time.Time) error {
 	return repo.DB.Where("programmer_id = ? AND date = ?", pid, date).Delete(&Attendance{}).Error
 }
+
 func (repo *Repository) GetGirinofReport(id string, date time.Time) (*GirinofReport, error) {
 	var report GirinofReport
 

@@ -27,7 +27,7 @@ func RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /attendance", GetAllAttendanceHandler)
 
 	mux.HandleFunc("GET /girinof/{programmer_id}/{date}", GetGirinofReportHandler)
-	mux.HandleFunc("GET /report/monthly/{programmer_id}/{start_date}/{end_date}", GetMonthlyReportHandler)
+	mux.HandleFunc("GET /report/monthly/{programmer_id}/{checkin}/{checkout}", GetMonthlyReportHandler)
 	mux.HandleFunc("GET /salary/{programmer_id}", GetSalaryHandler)
 
 	mux.HandleFunc("POST /programmer", CreateProgrammerHandler)
