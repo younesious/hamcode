@@ -38,9 +38,9 @@ func (repo *Repository) GetAllAttendance() ([]Attendance, error) {
 func (repo *Repository) UpdateAttendance(attendance *Attendance) error {
 	return repo.DB.Model(&Attendance{}).Where("id = ?", attendance.ID).
 		Updates(map[string]interface{}{
-			"date":      attendance.Date,
-			"check_in":  attendance.CheckIn,
-			"check_out": attendance.CheckOut,
+			"date":      attendance.Date.UTC(),
+			"check_in":  attendance.CheckIn.UTC(),
+			"check_out": attendance.CheckOut.UTC(),
 		}).Error
 }
 
@@ -168,7 +168,11 @@ func (repo *Repository) GetProgrammerByID(id uint) (*Programmer, error) {
 
 func (repo *Repository) IsExistDateAndProgrammerID(id uint, date time.Time) (*Attendance, bool) {
 	var attendance Attendance
-	if err := repo.DB.Where("programmer_id = ? AND date = ?", id, date).First(&attendance).Error; err != nil {
+
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.UTC().Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	if err := repo.DB.Where("programmer_id = ? AND date >= ? AND date < ?", id, startOfDay, endOfDay).First(&attendance).Error; err != nil {
 		return nil, false
 	}
 

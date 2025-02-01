@@ -3,12 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 	"sync"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 const (
@@ -27,12 +25,12 @@ func GetConnection() *gorm.DB {
 		connURL := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", user, password, host, port, dbname)
 
 		db, err := gorm.Open(postgres.Open(connURL), &gorm.Config{
-			Logger: logger.New(
-				log.New(os.Stdout, "\r\n", log.LstdFlags), // Use standard output for logs
-				logger.Config{
-					LogLevel: logger.Info, // Set log level to Info to print SQL queries
-				},
-			),
+			//		Logger: logger.New(
+			//			log.New(os.Stdout, "\r\n", log.LstdFlags), // Use standard output for logs
+			//			logger.Config{
+			//				LogLevel: logger.Info, // Set log level to Info to print SQL queries
+			//			},
+			//		),
 		})
 		if err != nil {
 			log.Fatalf("failed to connect database: %v", err)

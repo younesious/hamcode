@@ -57,8 +57,8 @@ type Programmer struct {
 
 type AttendanceInput struct {
 	Date     time.Time  `json:"date"`
-	CheckIn  *time.Time `json:"check_in"`
-	CheckOut *time.Time `json:"check_out"`
+	CheckIn  *time.Time `json:"check_in,omitempty"`
+	CheckOut *time.Time `json:"check_out,omitempty"`
 }
 
 type ProgrammerInput struct {
