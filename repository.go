@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"time"
 
 	"gorm.io/gorm"
@@ -12,8 +11,6 @@ type Repository struct {
 }
 
 func (repo *Repository) CreateAttendance(attendance *Attendance) error {
-	log.Printf("Saving attendance to DB: %+v\n", attendance)
-
 	return repo.DB.Debug().Create(attendance).Error
 }
 
@@ -52,7 +49,7 @@ func (repo *Repository) DeleteOneDayAttendance(pid uint, date time.Time) error {
 	return repo.DB.Where("programmer_id = ? AND date = ?", pid, date).Delete(&Attendance{}).Error
 }
 
-func (repo *Repository) GetGirinofReport(id string, date time.Time) (*GirinofReport, error) {
+func (repo *Repository) GetGirinofReport(pid uint, date time.Time) (*GirinofReport, error) {
 	var report GirinofReport
 
 	err := repo.DB.Raw(`
@@ -70,18 +67,16 @@ func (repo *Repository) GetGirinofReport(id string, date time.Time) (*GirinofRep
 			programmer_id = ? AND date = date_trunc('day', ?::timestamp)
 		GROUP BY 
 			programmer_id
-	`, id, date).Scan(&report).Error
+	`, pid, date).Scan(&report).Error
 
 	if err != nil {
 		return nil, err
 	}
 
-	log.Printf("\n\n\nhere is result: %+v", report)
-
 	return &report, nil
 }
 
-func (repo *Repository) GetMonthlyReport(id string, startDate, endDate time.Time) (*MonthlySummary, error) {
+func (repo *Repository) GetMonthlyReport(pid uint, startDate, endDate time.Time) (*MonthlySummary, error) {
 	var report MonthlySummary
 
 	err := repo.DB.Raw(`
@@ -103,7 +98,7 @@ func (repo *Repository) GetMonthlyReport(id string, startDate, endDate time.Time
 			programmer_id = ? AND date BETWEEN date_trunc('day', ?::timestamp) AND date_trunc('day', ?::timestamp)
 		GROUP BY 
 			programmer_id
-	`, id, startDate, endDate).Scan(&report).Error
+	`, pid, startDate, endDate).Scan(&report).Error
 
 	if err != nil {
 		return nil, err
@@ -112,7 +107,7 @@ func (repo *Repository) GetMonthlyReport(id string, startDate, endDate time.Time
 	return &report, nil
 }
 
-func (repo *Repository) CalculateSalary(id string, startDate, endDate time.Time) (*SalaryReport, error) {
+func (repo *Repository) CalculateSalary(pid uint, startDate, endDate time.Time) (*SalaryReport, error) {
 	var report SalaryReport
 
 	err := repo.DB.Raw(`
@@ -135,7 +130,7 @@ func (repo *Repository) CalculateSalary(id string, startDate, endDate time.Time)
 			a.programmer_id = ? AND a.date BETWEEN date_trunc('day', ?::timestamp) AND date_trunc('day', ?::timestamp)
 		GROUP BY 
 			p.name
-	`, id, startDate, endDate).Scan(&report).Error
+	`, pid, startDate, endDate).Scan(&report).Error
 
 	if err != nil {
 		return nil, err
@@ -166,13 +161,13 @@ func (repo *Repository) GetProgrammerByID(id uint) (*Programmer, error) {
 	return &programmer, nil
 }
 
-func (repo *Repository) IsExistDateAndProgrammerID(id uint, date time.Time) (*Attendance, bool) {
+func (repo *Repository) IsExistDateAndProgrammerID(pid uint, date time.Time) (*Attendance, bool) {
 	var attendance Attendance
 
 	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.UTC().Location())
 	endOfDay := startOfDay.Add(24 * time.Hour)
 
-	if err := repo.DB.Where("programmer_id = ? AND date >= ? AND date < ?", id, startOfDay, endOfDay).First(&attendance).Error; err != nil {
+	if err := repo.DB.Where("programmer_id = ? AND date >= ? AND date < ?", pid, startOfDay, endOfDay).First(&attendance).Error; err != nil {
 		return nil, false
 	}
 

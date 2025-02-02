@@ -274,7 +274,6 @@ func seedAttendanceData(t *testing.T, repo *MyTestRepository, programmerID uint)
 		},
 	}
 
-	// Insert the attendance records into the database
 	for _, att := range attendances {
 		err := repo.myCreateAttendance(&att)
 		assert.NoError(t, err)
@@ -284,11 +283,11 @@ func seedAttendanceData(t *testing.T, repo *MyTestRepository, programmerID uint)
 func clearTables(t *testing.T) {
 	t.Helper()
 
-	err := testDB.Where("1=1").Delete(&Attendance{}).Error
-	assert.NoError(t, err)
-
-	err = testDB.Where("1=1").Delete(&Programmer{}).Error
-	assert.NoError(t, err)
+	tables := []string{"programmers", "attendances"}
+	for _, table := range tables {
+		err := testDB.Exec("TRUNCATE TABLE " + table + " RESTART IDENTITY CASCADE").Error
+		assert.NoError(t, err)
+	}
 }
 
 func TestGetConnection(t *testing.T) {
@@ -885,41 +884,6 @@ func TestGetAllAttendanceHandler(t *testing.T) {
 	}
 }
 
-/*
-	INSERT INTO attendances (programmer_id, date, check_in, check_out) VALUES
-		(1, '2024-12-16', '2024-12-16 09:30:00', '2024-12-16 17:00:00'), -- Late check-in
-		(1, '2024-12-17', '2024-12-17 09:00:00', '2024-12-17 18:30:00'), -- Overtime
-		(1, '2024-12-18', '2024-12-18 08:50:00', '2024-12-18 16:45:00'), -- Early departure
-		(1, '2024-12-19', '2024-12-19 09:10:00', '2024-12-19 17:00:00'), -- Slight delay
-		(1, '2024-12-20', '2024-12-20 09:00:00', '2024-12-20 17:00:00'), -- On time
-		(1, '2024-12-21', '2024-12-21 09:15:00', '2024-12-21 16:50:00'), -- Delay and early departure
-		(1, '2024-12-22', '2024-12-22 10:00:00', '2024-12-22 17:30:00'), -- Major delay
-		(1, '2024-12-23', '2024-12-23 09:00:00', '2024-12-23 19:00:00'), -- Overtime
-		(1, '2024-12-24', '2024-12-24 08:55:00', '2024-12-24 16:30:00'), -- Early departure
-		(1, '2024-12-25', '2024-12-25 09:00:00', '2024-12-25 17:00:00'), -- Normal
-		(1, '2024-12-26', '2024-12-26 09:20:00', '2024-12-26 17:10:00'), -- Delay and minor overtime
-		(1, '2024-12-27', '2024-12-27 09:05:00', '2024-12-27 18:00:00'), -- Slight delay and overtime
-		(1, '2024-12-28', '2024-12-28 09:00:00', '2024-12-28 17:00:00'), -- Normal
-		(1, '2024-12-29', '2024-12-29 09:45:00', '2024-12-29 15:30:00'), -- Late and early departure
-		(1, '2024-12-30', '2024-12-30 09:10:00', '2024-12-30 17:15:00'), -- Delay and minor overtime
-		(1, '2024-12-31', '2024-12-31 09:00:00', '2024-12-31 17:00:00'), -- Normal
-		(1, '2025-01-01', '2025-01-01 08:55:00', '2025-01-01 16:55:00'), -- Early departure
-		(1, '2025-01-02', '2025-01-02 09:30:00', '2025-01-02 17:10:00'), -- Delay and minor overtime
-		(1, '2025-01-03', '2025-01-03 09:00:00', '2025-01-03 17:00:00'), -- Normal
-		(1, '2025-01-04', '2025-01-04 09:20:00', '2025-01-04 16:50:00'), -- Delay and early departure
-		(1, '2025-01-05', '2025-01-05 10:00:00', '2025-01-05 15:00:00'), -- Major delay and early departure
-		(1, '2025-01-06', '2025-01-06 09:00:00', '2025-01-06 18:00:00'), -- Overtime
-		(1, '2025-01-07', '2025-01-07 08:55:00', '2025-01-07 16:40:00'), -- Early departure
-		(1, '2025-01-08', '2025-01-08 09:00:00', '2025-01-08 17:00:00'), -- Normal
-		(1, '2025-01-09', '2025-01-09 09:40:00', '2025-01-09 17:30:00'), -- Delay and overtime
-		(1, '2025-01-10', '2025-01-10 09:00:00', '2025-01-10 17:00:00'), -- Normal
-		(1, '2025-01-11', '2025-01-11 09:05:00', '2025-01-11 17:15:00'), -- Slight delay and minor overtime
-		(1, '2025-01-12', '2025-01-12 09:25:00', '2025-01-12 16:45:00'), -- Delay and early departure
-		(1, '2025-01-13', '2025-01-13 09:00:00', '2025-01-13 17:00:00'), -- Normal
-		(1, '2025-01-14', '2025-01-14 09:15:00', '2025-01-14 18:00:00'), -- Delay and overtime
-		(1, '2025-01-15', '2025-01-15 09:00:00', '2025-01-15 17:00:00'); -- Normal
-*/
-
 // Test GetGirinofReportHandler
 func TestGetGirinofReportHandler(t *testing.T) {
 	t.Cleanup(func() { clearTables(t) })
@@ -1142,38 +1106,71 @@ func TestGetMonthlyReportHandler(t *testing.T) {
 	}
 }
 
-/*
 // Test GetSalaryHandler
 func TestGetSalaryHandler(t *testing.T) {
-	prog := createTestProgrammer(t)
-	startDate := time.Now().AddDate(0, 0, -30)
+	t.Cleanup(func() { clearTables(t) })
 
-	// Create some attendance records
-	for i := 0; i < 5; i++ {
-		attendance := Attendance{
-			ProgrammerID: prog.ID,
-			Date:         startDate.AddDate(0, 0, i),
-			CheckIn:      startDate.AddDate(0, 0, i).Add(9 * time.Hour),
-			CheckOut:     startDate.AddDate(0, 0, i).Add(18 * time.Hour), // 1 hour overtime
-		} // also here help from helper function I explained in girinof
-		err := testRepo.CreateAttendance(&attendance)
-		assert.NoError(t, err)
-	}
+	repo := &MyTestRepository{DB: testDB}
+	prog, err := repo.myCreateProgrammer()
+	assert.NoError(t, err)
+
+	prog2, err := repo.myCreateProgrammer()
+	assert.NoError(t, err)
+
+	seedAttendanceData(t, repo, prog.ID)
+
+	expectedSalary := (float64(30) * DailyRate) + (float64(550) * OvertimeRate) - (float64(380) * DelayPenalty)
 
 	tests := []struct {
 		name           string
 		programmerID   string
 		expectedStatus int
+		expectedReport *SalaryReport
+		expectedErrMsg string
 	}{
 		{
 			name:           "Valid salary calculation",
 			programmerID:   fmt.Sprint(prog.ID),
 			expectedStatus: http.StatusOK,
+			expectedReport: &SalaryReport{
+				Name:                 "Younes Mahmoudi",
+				TotalDaysPresent:     30,
+				TotalOvertimeMinutes: 550,
+				TotalDelayMinutes:    380,
+				TotalEarlyDepartures: 320,
+				TotalSalary:          expectedSalary,
+			},
 		},
 		{
 			name:           "Missing programmer ID",
 			programmerID:   "",
 			expectedStatus: http.StatusBadRequest,
+			expectedErrMsg: "Programmer ID is required",
+		},
+		{
+			name:           "Invalid programmer ID",
+			programmerID:   "invalid-id",
+			expectedStatus: http.StatusBadRequest,
+			expectedErrMsg: "Invalid programmer ID",
+		},
+		{
+			name:           "Programmer not found",
+			programmerID:   "999999",
+			expectedStatus: http.StatusNotFound,
+			expectedErrMsg: "Programmer not found",
+		},
+		{
+			name:           "Zero attendance records",
+			programmerID:   fmt.Sprint(prog2.ID),
+			expectedStatus: http.StatusOK,
+			expectedReport: &SalaryReport{
+				Name:                 "",
+				TotalDaysPresent:     0,
+				TotalOvertimeMinutes: 0,
+				TotalDelayMinutes:    0,
+				TotalEarlyDepartures: 0,
+				TotalSalary:          0,
+			},
 		},
 	}
 
@@ -1185,298 +1182,505 @@ func TestGetSalaryHandler(t *testing.T) {
 			GetSalaryHandler(w, req)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
+
 			if tt.expectedStatus == http.StatusOK {
 				var report SalaryReport
 				err := json.NewDecoder(w.Body).Decode(&report)
-				assert.NoError(t, err)
-				assert.Equal(t, 5, report.TotalDaysPresent)
-				assert.NotZero(t, report.TotalSalary)
-				assert.NotZero(t, report.TotalOvertimeMinutes)
-			} // TODO also check for Equality of fileds
-			// TODO here is the result of this query in DB: (name, total_days_present, total_overtime_minutes, total_delay_minutes, total_early_departure_minutes, total_salary) =
-			// TODO (Younes Mahmoudi,28,410,360,300, // TODO do it placeholder I fill it)
+				assert.NoError(t, err, "Failed to decode response body")
+
+				if tt.expectedReport.TotalDaysPresent > 0 {
+					assert.Equal(t, tt.expectedReport.Name, report.Name, "unexpected name")
+					assert.Equal(t, tt.expectedReport.TotalDaysPresent, report.TotalDaysPresent, "unexpected total days present")
+					assert.Equal(t, tt.expectedReport.TotalOvertimeMinutes, report.TotalOvertimeMinutes, "unexpected total overtimei minutes")
+					assert.Equal(t, tt.expectedReport.TotalDelayMinutes, report.TotalDelayMinutes, "unexpected total delay minutes")
+					assert.Equal(t, tt.expectedReport.TotalEarlyDepartures, report.TotalEarlyDepartures, "unexpected total early departure")
+					assert.Equal(t, tt.expectedReport.TotalSalary, report.TotalSalary, "unexpected total salary")
+				} else {
+					assert.Zero(t, report.TotalDaysPresent, "total day present should be zero")
+					assert.Zero(t, report.TotalOvertimeMinutes, "total overtime minutes should be zero")
+					assert.Zero(t, report.TotalDelayMinutes, "total delay minutes should be zero")
+					assert.Zero(t, report.TotalSalary, "total salary should be zero")
+				}
+			} else {
+				responseBody := strings.TrimSpace(w.Body.String())
+				assert.Contains(t, responseBody, tt.expectedErrMsg, "unexpected error message")
+
+			} // (Younes Mahmoudi,28,410,360,300,)
 
 		})
 	}
 }
 
-// Repository Tests // TODO and I thikn with todo comments I add to test the value in database after each endpoint test
-// I think TestRepository is useless and not make sense, are you agree with me? and in integration test with endpoint I test every thing and test cverage is 100%, right?
-func TestRepository(t *testing.T) {
-	// Test CreateProgrammer
-	t.Run("CreateProgrammer", func(t *testing.T) {
-		prog, err := testRepo.CreateProgrammer("Test Developer")
-		assert.NoError(t, err)
-		assert.NotNil(t, prog)
-		assert.NotZero(t, prog.ID)
-		assert.Equal(t, "Test Developer", prog.Name)
-	})
+func TestRepository_CreateProgrammer(t *testing.T) {
+	t.Cleanup(func() { clearTables(t) })
 
-	// Test GetProgrammerByID
-	t.Run("GetProgrammerByID", func(t *testing.T) {
-		prog, err := testRepo.CreateProgrammer("Test Dev")
-		assert.NoError(t, err)
-
-		// Test successful retrieval
-		found, err := testRepo.GetProgrammerByID(prog.ID)
-		assert.NoError(t, err)
-		assert.Equal(t, prog.ID, found.ID)
-		assert.Equal(t, prog.Name, found.Name)
-
-		// Test non-existent programmer
-		_, err = testRepo.GetProgrammerByID(99999)
-		assert.Error(t, err)
-	})
-
-	// Test CreateAttendance
-	t.Run("CreateAttendance", func(t *testing.T) {
-		prog, _ := testRepo.CreateProgrammer("Test Dev")
-		attendance := &Attendance{
-			ProgrammerID: prog.ID,
-			Date:         time.Now(),
-			CheckIn:      time.Now(),
-			CheckOut:     time.Now().Add(8 * time.Hour),
-		}
-
-		err := testRepo.CreateAttendance(attendance)
-		assert.NoError(t, err)
-		assert.NotZero(t, attendance.ID)
-
-		// Test duplicate entry
-		err = testRepo.CreateAttendance(attendance)
-		assert.Error(t, err) // Should fail due to unique constraint
-	})
-
-	// Test GetAttendancesByProgrammer
-	t.Run("GetAttendancesByProgrammer", func(t *testing.T) {
-		prog, _ := testRepo.CreateProgrammer("Test Dev")
-		attendance := &Attendance{
-			ProgrammerID: prog.ID,
-			Date:         time.Now(),
-			CheckIn:      time.Now(),
-			CheckOut:     time.Now().Add(8 * time.Hour),
-		}
-		testRepo.CreateAttendance(attendance)
-
-		records, err := testRepo.GetAttendancesByProgrammer(prog.ID)
-		assert.NoError(t, err)
-		assert.NotEmpty(t, records)
-		assert.Equal(t, prog.ID, records[0].ProgrammerID)
-	})
-
-	// Test GetAllAttendance
-	t.Run("GetAllAttendance", func(t *testing.T) {
-		prog, _ := testRepo.CreateProgrammer("Test Dev")
-		attendance := &Attendance{
-			ProgrammerID: prog.ID,
-			Date:         time.Now(),
-			CheckIn:      time.Now(),
-			CheckOut:     time.Now().Add(8 * time.Hour),
-		}
-		testRepo.CreateAttendance(attendance)
-
-		records, err := testRepo.GetAllAttendance()
-		assert.NoError(t, err)
-		assert.NotEmpty(t, records)
-	})
-
-	// Test UpdateAttendance
-	t.Run("UpdateAttendance", func(t *testing.T) {
-		prog, _ := testRepo.CreateProgrammer("Test Dev")
-		attendance := &Attendance{
-			ProgrammerID: prog.ID,
-			Date:         time.Now(),
-			CheckIn:      time.Now(),
-			CheckOut:     time.Now().Add(8 * time.Hour),
-		}
-		testRepo.CreateAttendance(attendance)
-
-		newCheckOut := time.Now().Add(9 * time.Hour)
-		attendance.CheckOut = newCheckOut
-		err := testRepo.UpdateAttendance(attendance)
-		assert.NoError(t, err)
-
-		// Verify update
-		updated, _ := testRepo.GetAttendancesByProgrammer(prog.ID)
-		assert.Equal(t, newCheckOut.Unix(), updated[0].CheckOut.Unix())
-	})
-
-	// Test DeleteAttendance
-	t.Run("DeleteAttendance", func(t *testing.T) {
-		prog, _ := testRepo.CreateProgrammer("Test Dev")
-		attendance := &Attendance{
-			ProgrammerID: prog.ID,
-			Date:         time.Now(),
-			CheckIn:      time.Now(),
-			CheckOut:     time.Now().Add(8 * time.Hour),
-		}
-		testRepo.CreateAttendance(attendance)
-
-		err := testRepo.DeleteAttendance(prog.ID)
-		assert.NoError(t, err)
-
-		// Verify deletion
-		records, _ := testRepo.GetAttendancesByProgrammer(prog.ID)
-		assert.Empty(t, records)
-	})
-
-	// Test DeleteOneDayAttendance
-	t.Run("DeleteOneDayAttendance", func(t *testing.T) {
-		prog, _ := testRepo.CreateProgrammer("Test Dev")
-		today := time.Now()
-		attendance := &Attendance{
-			ProgrammerID: prog.ID,
-			Date:         today,
-			CheckIn:      today,
-			CheckOut:     today.Add(8 * time.Hour),
-		}
-		testRepo.CreateAttendance(attendance)
-
-		err := testRepo.DeleteOneDayAttendance(prog.ID, today)
-		assert.NoError(t, err)
-
-		// Verify deletion
-		records, _ := testRepo.GetAttendancesByProgrammer(prog.ID)
-		assert.Empty(t, records)
-	})
-
-	// Test IsExistDateAndProgrammerID
-	t.Run("IsExistDateAndProgrammerID", func(t *testing.T) {
-		prog, _ := testRepo.CreateProgrammer("Test Dev")
-		today := time.Now()
-		attendance := &Attendance{
-			ProgrammerID: prog.ID,
-			Date:         today,
-			CheckIn:      today,
-			CheckOut:     today.Add(8 * time.Hour),
-		}
-		testRepo.CreateAttendance(attendance)
-
-		// Test existing record
-		found, exists := testRepo.IsExistDateAndProgrammerID(prog.ID, today)
-		assert.True(t, exists)
-		assert.NotNil(t, found)
-
-		// Test non-existing record
-		found, exists = testRepo.IsExistDateAndProgrammerID(prog.ID, today.AddDate(0, 0, 1))
-		assert.False(t, exists)
-		assert.Nil(t, found)
-	})
-
-	// Test GetGirinofReport
-	t.Run("GetGirinofReport", func(t *testing.T) {
-		prog, _ := testRepo.CreateProgrammer("Test Dev")
-		today := time.Now()
-		attendance := &Attendance{
-			ProgrammerID: prog.ID,
-			Date:         today,
-			CheckIn:      today.Add(10 * time.Hour), // 1 hour late
-			CheckOut:     today.Add(16 * time.Hour), // 1 hour early
-		}
-		testRepo.CreateAttendance(attendance)
-
-		report, err := testRepo.GetGirinofReport(fmt.Sprint(prog.ID), today)
-		assert.NoError(t, err)
-		assert.NotNil(t, report)
-		assert.NotZero(t, report.TotalDelayMinutes)
-		assert.NotZero(t, report.TotalEarlyDepartures)
-	})
-
-	// Test GetMonthlyReport
-	t.Run("GetMonthlyReport", func(t *testing.T) {
-		prog, _ := testRepo.CreateProgrammer("Test Dev")
-		startDate := time.Now().AddDate(0, 0, -5)
-		endDate := time.Now()
-
-		// Create some attendance records
-		for i := 0; i < 5; i++ {
-			attendance := &Attendance{
-				ProgrammerID: prog.ID,
-				Date:         startDate.AddDate(0, 0, i),
-				CheckIn:      startDate.AddDate(0, 0, i).Add(9 * time.Hour),
-				CheckOut:     startDate.AddDate(0, 0, i).Add(18 * time.Hour), // 1 hour overtime
-			}
-			testRepo.CreateAttendance(attendance)
-		}
-
-		report, err := testRepo.GetMonthlyReport(fmt.Sprint(prog.ID), startDate, endDate)
-		assert.NoError(t, err)
-		assert.NotNil(t, report)
-		assert.Equal(t, 5, report.TotalDaysPresent)
-		assert.NotZero(t, report.TotalOvertimeMinutes)
-	})
-
-	// Test CalculateSalary
-	t.Run("CalculateSalary", func(t *testing.T) {
-		prog, _ := testRepo.CreateProgrammer("Test Dev")
-		startDate := time.Now().AddDate(0, 0, -5)
-		endDate := time.Now()
-
-		// Create some attendance records
-		for i := 0; i < 5; i++ {
-			attendance := &Attendance{
-				ProgrammerID: prog.ID,
-				Date:         startDate.AddDate(0, 0, i),
-				CheckIn:      startDate.AddDate(0, 0, i).Add(9 * time.Hour),
-				CheckOut:     startDate.AddDate(0, 0, i).Add(18 * time.Hour), // 1 hour overtime
-			}
-			testRepo.CreateAttendance(attendance)
-		}
-
-		report, err := testRepo.CalculateSalary(fmt.Sprint(prog.ID), startDate, endDate)
-		assert.NoError(t, err)
-		assert.NotNil(t, report)
-		assert.Equal(t, 5, report.TotalDaysPresent)
-		assert.NotZero(t, report.TotalSalary)
-		assert.NotZero(t, report.TotalOvertimeMinutes)
-
-		// Verify salary calculation
-		expectedBase := float64(report.TotalDaysPresent) * DailyRate
-		expectedOvertime := float64(report.TotalOvertimeMinutes) * OvertimeRate
-		expectedTotal := expectedBase + expectedOvertime
-		assert.Equal(t, expectedTotal, report.TotalSalary)
-	})
+	prog, err := testRepo.CreateProgrammer("Test Developer")
+	assert.NoError(t, err)
+	assert.NotNil(t, prog)
+	assert.NotZero(t, prog.ID)
+	assert.Equal(t, "Test Developer", prog.Name)
 }
 
-// Model tests
-func TestAttendance_Marshaling(t *testing.T) {
-	date := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-	checkIn := date.Add(9 * time.Hour)
-	checkOut := date.Add(17 * time.Hour)
+func TestRepository_GetProgrammerByID(t *testing.T) {
+	t.Cleanup(func() { clearTables(t) })
 
-	a := Attendance{
-		ProgrammerID: 1,
-		Date:         date,
-		CheckIn:      checkIn,
-		CheckOut:     checkOut,
+	prog, err := testRepo.CreateProgrammer("Test Dev")
+	assert.NoError(t, err)
+
+	found, err := testRepo.GetProgrammerByID(prog.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, prog.ID, found.ID)
+	assert.Equal(t, prog.Name, found.Name)
+
+	_, err = testRepo.GetProgrammerByID(99999)
+	assert.Error(t, err)
+}
+
+func TestRepository_CreateAttendance(t *testing.T) {
+	t.Cleanup(func() { clearTables(t) })
+
+	prog, _ := testRepo.CreateProgrammer("Test Dev")
+	attendance := &Attendance{
+		ProgrammerID: prog.ID,
+		Date:         time.Now(),
+		CheckIn:      time.Now(),
+		CheckOut:     time.Now().Add(8 * time.Hour),
 	}
 
-	// Test Marshal
-	data, err := json.Marshal(a)
+	err := testRepo.CreateAttendance(attendance)
 	assert.NoError(t, err)
-	assert.Contains(t, string(data), `"date":"2024-01-01"`)              // I think here Equality is more make sense vs contain
-	assert.Contains(t, string(data), `"check_in":"2024-01-01 09:00:00"`) // I think here Equality is more make sense vs contain
+	assert.NotZero(t, attendance.ID)
 
-	// Test Unmarshal
-	var a2 Attendance
-	err = json.Unmarshal(data, &a2)
-	assert.NoError(t, err)
-	assert.True(t, date.Equal(a2.Date))
-	assert.True(t, checkIn.Equal(a2.CheckIn))
+	err = testRepo.CreateAttendance(attendance)
+	assert.Error(t, err)
 }
 
-func TestAttendanceInput_UnmarshalJSON(t *testing.T) {
-	payload := `{
-		"date": "2024-01-01",
-		"check_in": "2024-01-01 09:00:00",
-		"check_out": null
-	}`
+func TestRepository_GetAttendancesByProgrammer(t *testing.T) {
+	t.Cleanup(func() { clearTables(t) })
 
-	var input AttendanceInput
-	err := json.Unmarshal([]byte(payload), &input)
+	prog, _ := testRepo.CreateProgrammer("Test Dev")
+	attendance := &Attendance{
+		ProgrammerID: prog.ID,
+		Date:         time.Now(),
+		CheckIn:      time.Now(),
+		CheckOut:     time.Now().Add(8 * time.Hour),
+	}
+	testRepo.CreateAttendance(attendance)
+
+	records, err := testRepo.GetAttendancesByProgrammer(prog.ID)
 	assert.NoError(t, err)
-	assert.NotNil(t, input.CheckIn)
-	assert.Nil(t, input.CheckOut)
-	// TODO check for exact format we expected and value of that
+	assert.NotEmpty(t, records)
+	assert.Equal(t, prog.ID, records[0].ProgrammerID)
 }
-*/
+
+func TestRepository_GetAllAttendance(t *testing.T) {
+	t.Cleanup(func() { clearTables(t) })
+
+	prog, _ := testRepo.CreateProgrammer("Test Dev")
+	attendance := &Attendance{
+		ProgrammerID: prog.ID,
+		Date:         time.Now(),
+		CheckIn:      time.Now(),
+		CheckOut:     time.Now().Add(8 * time.Hour),
+	}
+	testRepo.CreateAttendance(attendance)
+
+	records, err := testRepo.GetAllAttendance()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, records)
+}
+
+func TestRepository_UpdateAttendance(t *testing.T) {
+	t.Cleanup(func() { clearTables(t) })
+
+	prog, _ := testRepo.CreateProgrammer("Test Dev")
+	attendance := &Attendance{
+		ProgrammerID: prog.ID,
+		Date:         time.Now(),
+		CheckIn:      time.Now(),
+		CheckOut:     time.Now().Add(8 * time.Hour),
+	}
+	testRepo.CreateAttendance(attendance)
+
+	newCheckOut := time.Now().Add(9 * time.Hour)
+	attendance.CheckOut = newCheckOut
+	err := testRepo.UpdateAttendance(attendance)
+	assert.NoError(t, err)
+
+	updated, _ := testRepo.GetAttendancesByProgrammer(prog.ID)
+	assert.Equal(t, newCheckOut.Unix(), updated[0].CheckOut.Unix())
+}
+
+func TestRepository_DeleteAttendance(t *testing.T) {
+	t.Cleanup(func() { clearTables(t) })
+
+	prog, _ := testRepo.CreateProgrammer("Test Dev")
+	attendance := &Attendance{
+		ProgrammerID: prog.ID,
+		Date:         time.Now(),
+		CheckIn:      time.Now(),
+		CheckOut:     time.Now().Add(8 * time.Hour),
+	}
+	testRepo.CreateAttendance(attendance)
+
+	err := testRepo.DeleteAttendance(prog.ID)
+	assert.NoError(t, err)
+
+	records, _ := testRepo.GetAttendancesByProgrammer(prog.ID)
+	assert.Empty(t, records)
+}
+
+func TestRepository_DeleteOneDayAttendance(t *testing.T) {
+	t.Cleanup(func() { clearTables(t) })
+
+	prog, _ := testRepo.CreateProgrammer("Test Dev")
+	today := time.Now()
+	attendance := &Attendance{
+		ProgrammerID: prog.ID,
+		Date:         today,
+		CheckIn:      today,
+		CheckOut:     today.Add(8 * time.Hour),
+	}
+	testRepo.CreateAttendance(attendance)
+
+	err := testRepo.DeleteOneDayAttendance(prog.ID, today)
+	assert.NoError(t, err)
+
+	records, _ := testRepo.GetAttendancesByProgrammer(prog.ID)
+	assert.Empty(t, records)
+}
+
+func TestRepository_IsExistDateAndProgrammerID(t *testing.T) {
+	t.Cleanup(func() { clearTables(t) })
+
+	prog, _ := testRepo.CreateProgrammer("Test Dev")
+	today := time.Now()
+	attendance := &Attendance{
+		ProgrammerID: prog.ID,
+		Date:         today,
+		CheckIn:      today,
+		CheckOut:     today.Add(8 * time.Hour),
+	}
+	testRepo.CreateAttendance(attendance)
+
+	found, exists := testRepo.IsExistDateAndProgrammerID(prog.ID, today)
+	assert.True(t, exists)
+	assert.NotNil(t, found)
+
+	found, exists = testRepo.IsExistDateAndProgrammerID(prog.ID, today.AddDate(0, 0, 1))
+	assert.False(t, exists)
+	assert.Nil(t, found)
+}
+
+func TestRepository_GetGirinofReport(t *testing.T) {
+	t.Cleanup(func() { clearTables(t) })
+
+	prog, _ := testRepo.CreateProgrammer("Test Dev")
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	attendance := &Attendance{
+		ProgrammerID: prog.ID,
+		Date:         today,
+		CheckIn:      today.Add(10 * time.Hour),
+		CheckOut:     today.Add(16 * time.Hour),
+	}
+	testRepo.CreateAttendance(attendance)
+
+	report, err := testRepo.GetGirinofReport(uint(prog.ID), today)
+	assert.NoError(t, err)
+	assert.NotNil(t, report)
+	assert.NotZero(t, report.TotalDelayMinutes)
+	assert.NotZero(t, report.TotalEarlyDepartures)
+}
+
+func TestRepository_GetMonthlyReport(t *testing.T) {
+	t.Cleanup(func() { clearTables(t) })
+
+	prog, _ := testRepo.CreateProgrammer("Test Dev")
+	startDate := time.Now().AddDate(0, 0, -5)
+	endDate := time.Now()
+
+	for i := 0; i < 5; i++ {
+		attendance := &Attendance{
+			ProgrammerID: prog.ID,
+			Date:         startDate.AddDate(0, 0, i),
+			CheckIn:      startDate.AddDate(0, 0, i).Add(9 * time.Hour),
+			CheckOut:     startDate.AddDate(0, 0, i).Add(18 * time.Hour),
+		}
+		testRepo.CreateAttendance(attendance)
+	}
+
+	report, err := testRepo.GetMonthlyReport(uint(prog.ID), startDate, endDate)
+	assert.NoError(t, err)
+	assert.NotNil(t, report)
+	assert.Equal(t, 5, report.TotalDaysPresent)
+	assert.NotZero(t, report.TotalOvertimeMinutes)
+}
+
+func TestRepository_CalculateSalary(t *testing.T) {
+	t.Cleanup(func() { clearTables(t) })
+
+	prog, _ := testRepo.CreateProgrammer("Test Dev")
+	startDate := time.Now().AddDate(0, 0, -5)
+	endDate := time.Now()
+
+	for i := 0; i < 5; i++ {
+		attendance := &Attendance{
+			ProgrammerID: prog.ID,
+			Date:         startDate.AddDate(0, 0, i),
+			CheckIn:      startDate.AddDate(0, 0, i).Add(9 * time.Hour),
+			CheckOut:     startDate.AddDate(0, 0, i).Add(18 * time.Hour),
+		}
+		testRepo.CreateAttendance(attendance)
+	}
+
+	report, err := testRepo.CalculateSalary(uint(prog.ID), startDate, endDate)
+	assert.NoError(t, err)
+	assert.NotNil(t, report)
+	assert.Equal(t, 5, report.TotalDaysPresent)
+	assert.NotZero(t, report.TotalSalary)
+	assert.NotZero(t, report.TotalOvertimeMinutes)
+
+	expectedBase := float64(report.TotalDaysPresent) * DailyRate
+	expectedOvertime := float64(report.TotalOvertimeMinutes) * OvertimeRate
+	expectedDelay := float64(report.TotalDelayMinutes) * DelayPenalty
+	expectedTotal := expectedBase + expectedOvertime - expectedDelay
+	assert.Equal(t, expectedTotal, report.TotalSalary)
+}
+
+// TestAttendance_UnmarshalJSON
+func TestAttendance_UnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		wantErr     bool
+		errContains string
+		expected    Attendance
+	}{
+		{
+			name: "valid input",
+			input: `{
+				"date": "2024-01-01",
+				"check_in": "2024-01-01 09:00:00",
+				"check_out": "2024-01-01 17:00:00",
+				"programmer_id": 1
+			}`,
+			wantErr: false,
+			expected: Attendance{
+				ProgrammerID: 1,
+				Date:         time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+				CheckIn:      time.Date(2024, 1, 1, 9, 0, 0, 0, time.UTC),
+				CheckOut:     time.Date(2024, 1, 1, 17, 0, 0, 0, time.UTC),
+			},
+		},
+		{
+			name: "invalid date format",
+			input: `{
+				"date": "01-01-2024",
+				"check_in": "2024-01-01 09:00:00",
+				"check_out": "2024-01-01 17:00:00",
+				"programmer_id": 1
+			}`,
+			wantErr:     true,
+			errContains: "parsing time \"01-01-2024\" as \"2006-01-02\"",
+		},
+		{
+			name: "invalid check_in format",
+			input: `{
+				"date": "2024-01-01",
+				"check_in": "09:00:00",
+				"check_out": "2024-01-01 17:00:00",
+				"programmer_id": 1
+			}`,
+			wantErr:     true,
+			errContains: "parsing time \"09:00:00\" as \"2006-01-02 15:04:05\"",
+		},
+		{
+			name: "missing programmer_id",
+			input: `{
+				"date": "2024-01-01",
+				"check_in": "2024-01-01 09:00:00",
+				"check_out": "2024-01-01 17:00:00"
+			}`,
+			wantErr: false,
+			expected: Attendance{
+				ProgrammerID: 0,
+				Date:         time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+				CheckIn:      time.Date(2024, 1, 1, 9, 0, 0, 0, time.UTC),
+				CheckOut:     time.Date(2024, 1, 1, 17, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var a Attendance
+			err := json.Unmarshal([]byte(tt.input), &a)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected.ProgrammerID, a.ProgrammerID)
+				assert.True(t, tt.expected.Date.Equal(a.Date), "Date mismatch")
+				assert.True(t, tt.expected.CheckIn.Equal(a.CheckIn), "CheckIn mismatch")
+				assert.True(t, tt.expected.CheckOut.Equal(a.CheckOut), "CheckOut mismatch")
+			}
+		})
+	}
+}
+
+// TestAttendance_MarshalJSON
+func TestAttendance_MarshalJSON(t *testing.T) {
+	loc, _ := time.LoadLocation("Asia/Tokyo")
+	testTime := time.Date(2024, 1, 1, 9, 0, 0, 0, loc)
+
+	tests := []struct {
+		name     string
+		input    Attendance
+		expected string
+	}{
+		{
+			name: "valid marshaling",
+			input: Attendance{
+				ID:           1,
+				ProgrammerID: 1,
+				Date:         testTime,
+				CheckIn:      testTime,
+				CheckOut:     testTime.Add(8 * time.Hour),
+			},
+			expected: `{
+				"id":1,
+				"programmer_id":1,
+				"date":"2024-01-01",
+				"check_in":"2024-01-01 00:00:00",
+				"check_out":"2024-01-01 08:00:00"
+			}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := json.Marshal(tt.input)
+			assert.NoError(t, err)
+
+			// Normalize JSON
+			var expected, actual map[string]interface{}
+			json.Unmarshal([]byte(tt.expected), &expected)
+			json.Unmarshal(result, &actual)
+
+			assert.Equal(t, expected, actual)
+		})
+	}
+}
+
+// TestAttendance_InputUnmarshalJSON
+func TestAttendance_InputUnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		wantErr     bool
+		errContains string
+		expected    AttendanceInput
+	}{
+		{
+			name: "valid input with all fields",
+			input: `{
+				"date": "2024-01-01",
+				"check_in": "2024-01-01 09:00:00",
+				"check_out": "2024-01-01 17:00:00"
+			}`,
+			wantErr: false,
+			expected: AttendanceInput{
+				Date:     time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+				CheckIn:  refTime(2024, 1, 1, 9, 0, 0),
+				CheckOut: refTime(2024, 1, 1, 17, 0, 0),
+			},
+		},
+		{
+			name: "missing date field",
+			input: `{
+				"check_in": "2024-01-01 09:00:00",
+				"check_out": "2024-01-01 17:00:00"
+			}`,
+			wantErr:     true,
+			errContains: "date field is nessasery",
+		},
+		{
+			name: "invalid date format",
+			input: `{
+				"date": "2024/01/01",
+				"check_in": "2024-01-01 09:00:00"
+			}`,
+			wantErr:     true,
+			errContains: "invalid date format",
+		},
+		{
+			name: "invalid check_in format",
+			input: `{
+				"date": "2024-01-01",
+				"check_in": "09:00:00"
+			}`,
+			wantErr:     true,
+			errContains: "invalid check_in format",
+		},
+		{
+			name: "optional check_out omitted",
+			input: `{
+				"date": "2024-01-01",
+				"check_in": "2024-01-01 09:00:00"
+			}`,
+			wantErr: false,
+			expected: AttendanceInput{
+				Date:    time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+				CheckIn: refTime(2024, 1, 1, 9, 0, 0),
+			},
+		},
+		{
+			name: "null check_in",
+			input: `{
+				"date": "2024-01-01",
+				"check_in": null
+			}`,
+			wantErr: false,
+			expected: AttendanceInput{
+				Date: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var ai AttendanceInput
+			err := json.Unmarshal([]byte(tt.input), &ai)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected.Date.UTC(), ai.Date.UTC())
+				assertTimesEqual(t, tt.expected.CheckIn, ai.CheckIn)
+				assertTimesEqual(t, tt.expected.CheckOut, ai.CheckOut)
+			}
+		})
+	}
+}
+
+// Helper functions
+func refTime(year, month, day, hour, min, sec int) *time.Time {
+	t := time.Date(year, time.Month(month), day, hour, min, sec, 0, time.UTC)
+	return &t
+}
+
+func assertTimesEqual(t *testing.T, expected, actual *time.Time) {
+	if expected == nil {
+		assert.Nil(t, actual)
+		return
+	}
+	assert.True(t, expected.Equal(*actual), "expected: %v, actual: %v", expected, actual)
+}

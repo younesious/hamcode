@@ -244,7 +244,7 @@ func GetGirinofReportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	report, err := repo.GetGirinofReport(pidStr, date)
+	report, err := repo.GetGirinofReport(uint(pid), date)
 	if err != nil {
 		http.Error(w, "Failed to generate report", http.StatusInternalServerError)
 		return
@@ -299,7 +299,7 @@ func GetMonthlyReportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	report, err := repo.GetMonthlyReport(pidStr, startDate, endDate)
+	report, err := repo.GetMonthlyReport(uint(pid), startDate, endDate)
 	if err != nil {
 		http.Error(w, "Failed to generate monthly report", http.StatusInternalServerError)
 		return
@@ -309,16 +309,29 @@ func GetMonthlyReportHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetSalaryHandler(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("programmer_id")
-	if id == "" {
+	path := r.URL.Path
+	parts := strings.Split(path, "/")
+
+	if parts[2] == "" {
 		http.Error(w, "Programmer ID is required", http.StatusBadRequest)
+		return
+	}
+	pidStr := parts[2]
+	pid, err := strconv.Atoi(pidStr)
+	if err != nil || pid <= 0 {
+		http.Error(w, "Invalid programmer ID", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := repo.GetProgrammerByID(uint(pid)); err != nil {
+		http.Error(w, "Programmer not found", http.StatusNotFound)
 		return
 	}
 
 	now := time.Now().UTC().Truncate(24 * time.Hour)
 	thirtyDaysAgo := now.AddDate(0, 0, -30)
 
-	salary, err := repo.CalculateSalary(id, thirtyDaysAgo, now)
+	salary, err := repo.CalculateSalary(uint(pid), thirtyDaysAgo, now)
 	if err != nil {
 		http.Error(w, "Failed to calculate salary", http.StatusInternalServerError)
 		return
