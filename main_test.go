@@ -49,9 +49,6 @@ func (r *MyTestRepository) myIsExistDateAndProgrammerID(id uint, date time.Time)
 }
 
 func seedAttendanceData(t *testing.T, repo *MyTestRepository, programmerID uint) {
-	t.Helper()
-
-	clearTables(t)
 	// Helper function to parse time strings
 	parseTime := func(timeStr string) time.Time {
 		parsedTime, err := time.Parse("2006-01-02 15:04:05", timeStr)
@@ -888,70 +885,107 @@ func TestGetAllAttendanceHandler(t *testing.T) {
 }
 
 /*
+	INSERT INTO attendances (programmer_id, date, check_in, check_out) VALUES
+		(1, '2024-12-16', '2024-12-16 09:30:00', '2024-12-16 17:00:00'), -- Late check-in
+		(1, '2024-12-17', '2024-12-17 09:00:00', '2024-12-17 18:30:00'), -- Overtime
+		(1, '2024-12-18', '2024-12-18 08:50:00', '2024-12-18 16:45:00'), -- Early departure
+		(1, '2024-12-19', '2024-12-19 09:10:00', '2024-12-19 17:00:00'), -- Slight delay
+		(1, '2024-12-20', '2024-12-20 09:00:00', '2024-12-20 17:00:00'), -- On time
+		(1, '2024-12-21', '2024-12-21 09:15:00', '2024-12-21 16:50:00'), -- Delay and early departure
+		(1, '2024-12-22', '2024-12-22 10:00:00', '2024-12-22 17:30:00'), -- Major delay
+		(1, '2024-12-23', '2024-12-23 09:00:00', '2024-12-23 19:00:00'), -- Overtime
+		(1, '2024-12-24', '2024-12-24 08:55:00', '2024-12-24 16:30:00'), -- Early departure
+		(1, '2024-12-25', '2024-12-25 09:00:00', '2024-12-25 17:00:00'), -- Normal
+		(1, '2024-12-26', '2024-12-26 09:20:00', '2024-12-26 17:10:00'), -- Delay and minor overtime
+		(1, '2024-12-27', '2024-12-27 09:05:00', '2024-12-27 18:00:00'), -- Slight delay and overtime
+		(1, '2024-12-28', '2024-12-28 09:00:00', '2024-12-28 17:00:00'), -- Normal
+		(1, '2024-12-29', '2024-12-29 09:45:00', '2024-12-29 15:30:00'), -- Late and early departure
+		(1, '2024-12-30', '2024-12-30 09:10:00', '2024-12-30 17:15:00'), -- Delay and minor overtime
+		(1, '2024-12-31', '2024-12-31 09:00:00', '2024-12-31 17:00:00'), -- Normal
+		(1, '2025-01-01', '2025-01-01 08:55:00', '2025-01-01 16:55:00'), -- Early departure
+		(1, '2025-01-02', '2025-01-02 09:30:00', '2025-01-02 17:10:00'), -- Delay and minor overtime
+		(1, '2025-01-03', '2025-01-03 09:00:00', '2025-01-03 17:00:00'), -- Normal
+		(1, '2025-01-04', '2025-01-04 09:20:00', '2025-01-04 16:50:00'), -- Delay and early departure
+		(1, '2025-01-05', '2025-01-05 10:00:00', '2025-01-05 15:00:00'), -- Major delay and early departure
+		(1, '2025-01-06', '2025-01-06 09:00:00', '2025-01-06 18:00:00'), -- Overtime
+		(1, '2025-01-07', '2025-01-07 08:55:00', '2025-01-07 16:40:00'), -- Early departure
+		(1, '2025-01-08', '2025-01-08 09:00:00', '2025-01-08 17:00:00'), -- Normal
+		(1, '2025-01-09', '2025-01-09 09:40:00', '2025-01-09 17:30:00'), -- Delay and overtime
+		(1, '2025-01-10', '2025-01-10 09:00:00', '2025-01-10 17:00:00'), -- Normal
+		(1, '2025-01-11', '2025-01-11 09:05:00', '2025-01-11 17:15:00'), -- Slight delay and minor overtime
+		(1, '2025-01-12', '2025-01-12 09:25:00', '2025-01-12 16:45:00'), -- Delay and early departure
+		(1, '2025-01-13', '2025-01-13 09:00:00', '2025-01-13 17:00:00'), -- Normal
+		(1, '2025-01-14', '2025-01-14 09:15:00', '2025-01-14 18:00:00'), -- Delay and overtime
+		(1, '2025-01-15', '2025-01-15 09:00:00', '2025-01-15 17:00:00'); -- Normal
+*/
+
 // Test GetGirinofReportHandler
 func TestGetGirinofReportHandler(t *testing.T) {
-	prog := createTestProgrammer(t)
-	attendance := Attendance{
-		ProgrammerID: prog.ID,
-		Date:         time.Now(),
-		CheckIn:      time.Now().Add(30 * time.Minute), // 30 minutes late
-		CheckOut:     time.Now().Add(7 * time.Hour),    // 1 hour early
-	} // TODO for girinof, monthly report and salary we need a helper function to seed database with this data, and for valid report should check details of query result:
-	/*
-		INSERT INTO attendances (programmer_id, date, check_in, check_out) VALUES
-			(1, '2024-12-16', '2024-12-16 09:30:00', '2024-12-16 17:00:00'), -- Late check-in
-			(1, '2024-12-17', '2024-12-17 09:00:00', '2024-12-17 18:30:00'), -- Overtime
-			(1, '2024-12-18', '2024-12-18 08:50:00', '2024-12-18 16:45:00'), -- Early departure
-			(1, '2024-12-19', '2024-12-19 09:10:00', '2024-12-19 17:00:00'), -- Slight delay
-			(1, '2024-12-20', '2024-12-20 09:00:00', '2024-12-20 17:00:00'), -- On time
-			(1, '2024-12-21', '2024-12-21 09:15:00', '2024-12-21 16:50:00'), -- Delay and early departure
-			(1, '2024-12-22', '2024-12-22 10:00:00', '2024-12-22 17:30:00'), -- Major delay
-			(1, '2024-12-23', '2024-12-23 09:00:00', '2024-12-23 19:00:00'), -- Overtime
-			(1, '2024-12-24', '2024-12-24 08:55:00', '2024-12-24 16:30:00'), -- Early departure
-			(1, '2024-12-25', '2024-12-25 09:00:00', '2024-12-25 17:00:00'), -- Normal
-			(1, '2024-12-26', '2024-12-26 09:20:00', '2024-12-26 17:10:00'), -- Delay and minor overtime
-			(1, '2024-12-27', '2024-12-27 09:05:00', '2024-12-27 18:00:00'), -- Slight delay and overtime
-			(1, '2024-12-28', '2024-12-28 09:00:00', '2024-12-28 17:00:00'), -- Normal
-			(1, '2024-12-29', '2024-12-29 09:45:00', '2024-12-29 15:30:00'), -- Late and early departure
-			(1, '2024-12-30', '2024-12-30 09:10:00', '2024-12-30 17:15:00'), -- Delay and minor overtime
-			(1, '2024-12-31', '2024-12-31 09:00:00', '2024-12-31 17:00:00'), -- Normal
-			(1, '2025-01-01', '2025-01-01 08:55:00', '2025-01-01 16:55:00'), -- Early departure
-			(1, '2025-01-02', '2025-01-02 09:30:00', '2025-01-02 17:10:00'), -- Delay and minor overtime
-			(1, '2025-01-03', '2025-01-03 09:00:00', '2025-01-03 17:00:00'), -- Normal
-			(1, '2025-01-04', '2025-01-04 09:20:00', '2025-01-04 16:50:00'), -- Delay and early departure
-			(1, '2025-01-05', '2025-01-05 10:00:00', '2025-01-05 15:00:00'), -- Major delay and early departure
-			(1, '2025-01-06', '2025-01-06 09:00:00', '2025-01-06 18:00:00'), -- Overtime
-			(1, '2025-01-07', '2025-01-07 08:55:00', '2025-01-07 16:40:00'), -- Early departure
-			(1, '2025-01-08', '2025-01-08 09:00:00', '2025-01-08 17:00:00'), -- Normal
-			(1, '2025-01-09', '2025-01-09 09:40:00', '2025-01-09 17:30:00'), -- Delay and overtime
-			(1, '2025-01-10', '2025-01-10 09:00:00', '2025-01-10 17:00:00'), -- Normal
-			(1, '2025-01-11', '2025-01-11 09:05:00', '2025-01-11 17:15:00'), -- Slight delay and minor overtime
-			(1, '2025-01-12', '2025-01-12 09:25:00', '2025-01-12 16:45:00'), -- Delay and early departure
-			(1, '2025-01-13', '2025-01-13 09:00:00', '2025-01-13 17:00:00'), -- Normal
-			(1, '2025-01-14', '2025-01-14 09:15:00', '2025-01-14 18:00:00'), -- Delay and overtime
-			(1, '2025-01-15', '2025-01-15 09:00:00', '2025-01-15 17:00:00'); -- Normal
-*/
-//TODO to our tests independent of hard coded time. plz use Time.Now instead of last rec(2025-01-15) and then minuse it to last month) // TODO **important note**
-/*
-	err := testRepo.CreateAttendance(&attendance)
+	t.Cleanup(func() { clearTables(t) })
+
+	repo := &MyTestRepository{DB: testDB}
+	prog, err := repo.myCreateProgrammer()
 	assert.NoError(t, err)
 
+	seedAttendanceData(t, repo, prog.ID)
+
+	now := time.Now().UTC()
+	date30DaysAgo := now.AddDate(0, 0, -30).Truncate(24 * time.Hour).Format("2006-01-02")
+	date28DaysAgo := now.AddDate(0, 0, -28).Truncate(24 * time.Hour).Format("2006-01-02")
+	date25DaysAgo := now.AddDate(0, 0, -25).Truncate(24 * time.Hour).Format("2006-01-02")
+	currentDate := now.Truncate(24 * time.Hour).Format("2006-01-02")
 	tests := []struct {
-		name           string
-		programmerID   string
-		date           string
-		expectedStatus int
+		name                       string
+		programmerID               string
+		date                       string
+		expectedStatus             int
+		expectedDelayMinutes       float64
+		expectedEarlyDepartureMins float64
 	}{
 		{
-			name:           "Valid report",
-			programmerID:   fmt.Sprint(prog.ID),
-			date:           attendance.Date.Format("2006-01-02"),
-			expectedStatus: http.StatusOK,
+			name:                       "Valid report with 30 minutes delay",
+			programmerID:               fmt.Sprint(prog.ID),
+			date:                       date30DaysAgo,
+			expectedStatus:             http.StatusOK,
+			expectedDelayMinutes:       30,
+			expectedEarlyDepartureMins: 0,
 		},
 		{
-			name:           "Invalid date format",
-			programmerID:   fmt.Sprint(prog.ID),
-			date:           "invalid-date",
+			name:                       "Valid report with 15 minutes early departure",
+			programmerID:               fmt.Sprint(prog.ID),
+			date:                       date28DaysAgo,
+			expectedStatus:             http.StatusOK,
+			expectedDelayMinutes:       0,
+			expectedEarlyDepartureMins: 15,
+		},
+		{
+			name:                       "Valid report with 15 minutes delay and 10 minutes early",
+			programmerID:               fmt.Sprint(prog.ID),
+			date:                       date25DaysAgo,
+			expectedStatus:             http.StatusOK,
+			expectedDelayMinutes:       15,
+			expectedEarlyDepartureMins: 10,
+		},
+		{
+			name:                       "Valid date with no attendance",
+			programmerID:               fmt.Sprint(prog.ID),
+			date:                       currentDate,
+			expectedStatus:             http.StatusBadRequest,
+			expectedDelayMinutes:       0,
+			expectedEarlyDepartureMins: 0,
+		},
+		{
+			name:                       "Invalid date format",
+			programmerID:               fmt.Sprint(prog.ID),
+			date:                       "invalid-date",
+			expectedStatus:             http.StatusBadRequest,
+			expectedDelayMinutes:       0,
+			expectedEarlyDepartureMins: 0,
+		},
+		{
+			name:           "Missing programmer id",
+			programmerID:   "",
+			date:           currentDate,
 			expectedStatus: http.StatusBadRequest,
 		},
 	}
@@ -964,35 +998,27 @@ func TestGetGirinofReportHandler(t *testing.T) {
 			GetGirinofReportHandler(w, req)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
+
 			if tt.expectedStatus == http.StatusOK {
 				var report GirinofReport
 				err := json.NewDecoder(w.Body).Decode(&report)
-				assert.NoError(t, err)
-				assert.NotZero(t, report.TotalDelayMinutes)
-				assert.NotZero(t, report.TotalEarlyDepartures) // TODO + NotZero assertion we need to check the Equal exact valure of that
-				// TODO here is the result of this query in DB: (programmer_id, total_delay_minutes, total_early_departure_minutes) = (1,25,15)
+				assert.NoError(t, err, "Expected valid JSON response")
+				assert.Equal(t, tt.programmerID, report.ProgrammerID, "unexpected programmerID")
+				assert.Equal(t, tt.expectedDelayMinutes, report.TotalDelayMinutes, "unexpected total delay minutes")
+				assert.Equal(t, tt.expectedEarlyDepartureMins, report.TotalEarlyDepartures, "unexpected total early departure minutes")
 			}
 		})
 	}
 }
 
+/*
 // Test GetMonthlyReportHandler
 func TestGetMonthlyReportHandler(t *testing.T) {
-	prog := createTestProgrammer(t)
-	startDate := time.Now().AddDate(0, 0, -30)
-	endDate := time.Now()
+	t.Cleanup(func() { clearTables(t) })
 
-	// Create some attendance records
-	for i := 0; i < 5; i++ {
-		attendance := Attendance{
-			ProgrammerID: prog.ID,
-			Date:         startDate.AddDate(0, 0, i),
-			CheckIn:      startDate.AddDate(0, 0, i).Add(9 * time.Hour),
-			CheckOut:     startDate.AddDate(0, 0, i).Add(17 * time.Hour),
-		} // TODO also here help the helper func I explained in girinof
-		err := testRepo.CreateAttendance(&attendance)
-		assert.NoError(t, err)
-	}
+	repo := &MyTestRepository{DB: testDB}
+	prog, err := repo.myCreateProgrammer()
+	assert.NoError(t, err)
 
 	tests := []struct {
 		name           string
@@ -1037,6 +1063,7 @@ func TestGetMonthlyReportHandler(t *testing.T) {
 	}
 }
 
+/*
 // Test GetSalaryHandler
 func TestGetSalaryHandler(t *testing.T) {
 	prog := createTestProgrammer(t)

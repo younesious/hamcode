@@ -183,7 +183,7 @@ func DeleteOneDayAttendanceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if parts[3] == "" {
-		http.Error(w, "Programmer ID is required", http.StatusBadRequest)
+		http.Error(w, "Date is required", http.StatusBadRequest)
 		return
 	}
 	dateStr := parts[3]
@@ -208,19 +208,43 @@ func DeleteOneDayAttendanceHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetGirinofReportHandler(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("programmer_id")
-	if id == "" {
+	path := r.URL.Path
+	parts := strings.Split(path, "/")
+
+	if parts[2] == "" {
 		http.Error(w, "Programmer ID is required", http.StatusBadRequest)
 		return
 	}
+	pidStr := parts[2]
 
-	date, err := time.Parse("2006-01-02", r.PathValue("date"))
+	if parts[3] == "" {
+		http.Error(w, "Date is required", http.StatusBadRequest)
+		return
+	}
+	dateStr := parts[3]
+
+	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
 		http.Error(w, "Invalid Date", http.StatusBadRequest)
 		return
 	}
 
-	report, err := repo.GetGirinofReport(id, date)
+	pid, err := strconv.Atoi(pidStr)
+	if err != nil || pid <= 0 {
+		http.Error(w, "Invalid Programmer ID", http.StatusBadRequest)
+		return
+	}
+	if _, err := repo.GetProgrammerByID(uint(pid)); err != nil {
+		http.Error(w, "Programmer not found", http.StatusNotFound)
+		return
+	}
+	_, exist := repo.IsExistDateAndProgrammerID(uint(pid), date)
+	if !exist {
+		http.Error(w, "Programmer with the given date not recorded. Please use CreateAttendanceHandler to create it!", http.StatusBadRequest)
+		return
+	}
+
+	report, err := repo.GetGirinofReport(pidStr, date)
 	if err != nil {
 		http.Error(w, "Failed to generate report", http.StatusInternalServerError)
 		return
