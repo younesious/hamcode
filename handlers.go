@@ -254,29 +254,52 @@ func GetGirinofReportHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetMonthlyReportHandler(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("programmer_id")
-	if id == "" {
+	path := r.URL.Path
+	parts := strings.Split(path, "/")
+
+	if parts[3] == "" {
 		http.Error(w, "Programmer ID is required", http.StatusBadRequest)
 		return
 	}
+	pidStr := parts[3]
+	pid, err := strconv.Atoi(pidStr)
+	if err != nil || pid <= 0 {
+		http.Error(w, "Invalid programmer ID", http.StatusBadRequest)
+		return
+	}
 
-	checkIn, err := time.Parse("2006-01-02", r.PathValue("checkin"))
+	if parts[4] == "" {
+		http.Error(w, "Start date is required", http.StatusBadRequest)
+		return
+	}
+	startDateStr := parts[4]
+	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
-		http.Error(w, "Invalid CheckIn date", http.StatusBadRequest)
+		http.Error(w, "Invalid start date format", http.StatusBadRequest)
 		return
 	}
-	checkOut, err := time.Parse("2006-01-02", r.PathValue("checkout"))
+	if parts[5] == "" {
+		http.Error(w, "End date is required", http.StatusBadRequest)
+		return
+	}
+	endDateStr := parts[5]
+	endDate, err := time.Parse("2006-01-02", endDateStr)
 	if err != nil {
-		http.Error(w, "Invalid CheckOut date", http.StatusBadRequest)
+		http.Error(w, "Invalid end date format", http.StatusBadRequest)
 		return
 	}
 
-	if checkOut.Before(checkIn) {
-		http.Error(w, "CheckOut cannot be before CheckIn", http.StatusBadRequest)
+	if _, err := repo.GetProgrammerByID(uint(pid)); err != nil {
+		http.Error(w, "Programmer not found", http.StatusNotFound)
 		return
 	}
 
-	report, err := repo.GetMonthlyReport(id, checkIn, checkOut)
+	if endDate.Before(startDate) {
+		http.Error(w, "End date cannot be before start date", http.StatusBadRequest)
+		return
+	}
+
+	report, err := repo.GetMonthlyReport(pidStr, startDate, endDate)
 	if err != nil {
 		http.Error(w, "Failed to generate monthly report", http.StatusInternalServerError)
 		return
@@ -292,7 +315,7 @@ func GetSalaryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now()
+	now := time.Now().UTC().Truncate(24 * time.Hour)
 	thirtyDaysAgo := now.AddDate(0, 0, -30)
 
 	salary, err := repo.CalculateSalary(id, thirtyDaysAgo, now)

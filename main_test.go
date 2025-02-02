@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -1011,7 +1012,6 @@ func TestGetGirinofReportHandler(t *testing.T) {
 	}
 }
 
-/*
 // Test GetMonthlyReportHandler
 func TestGetMonthlyReportHandler(t *testing.T) {
 	t.Cleanup(func() { clearTables(t) })
@@ -1020,12 +1020,20 @@ func TestGetMonthlyReportHandler(t *testing.T) {
 	prog, err := repo.myCreateProgrammer()
 	assert.NoError(t, err)
 
+	seedAttendanceData(t, repo, prog.ID)
+
+	now := time.Now().UTC()
+	startDate := now.AddDate(0, 0, -30).Truncate(24 * time.Hour)
+	endDate := now.Truncate(24 * time.Hour)
+
 	tests := []struct {
 		name           string
 		programmerID   string
 		startDate      string
 		endDate        string
 		expectedStatus int
+		expectedReport *MonthlySummary
+		expectedErrMsg string
 	}{
 		{
 			name:           "Valid report",
@@ -1033,15 +1041,79 @@ func TestGetMonthlyReportHandler(t *testing.T) {
 			startDate:      startDate.Format("2006-01-02"),
 			endDate:        endDate.Format("2006-01-02"),
 			expectedStatus: http.StatusOK,
+			expectedReport: &MonthlySummary{
+				ProgrammerID:         fmt.Sprint(prog.ID),
+				TotalDaysPresent:     30,
+				TotalOvertimeMinutes: 550,
+				TotalDelayMinutes:    380,
+				TotalEarlyDepartures: 320,
+			},
 		},
 		{
-			name:           "Invalid date format",
+			name:           "Invalid start date format",
 			programmerID:   fmt.Sprint(prog.ID),
-			startDate:      "invalid-date",
+			startDate:      "invalid-start-date",
 			endDate:        endDate.Format("2006-01-02"),
 			expectedStatus: http.StatusBadRequest,
+			expectedErrMsg: "Invalid start date format",
 		},
-	} // TODO add test case for endDate before start date and check err message
+		{
+			name:           "Invalid end date format",
+			programmerID:   fmt.Sprint(prog.ID),
+			startDate:      startDate.Format("2006-01-02"),
+			endDate:        "invalid-end-date",
+			expectedStatus: http.StatusBadRequest,
+			expectedErrMsg: "Invalid end date format",
+		},
+		{
+			name:           "End date before start date",
+			programmerID:   fmt.Sprint(prog.ID),
+			startDate:      endDate.Format("2006-01-02"),
+			endDate:        startDate.Format("2006-01-02"),
+			expectedStatus: http.StatusBadRequest,
+			expectedErrMsg: "End date cannot be before start date",
+		},
+		{
+			name:           "Missing start date",
+			programmerID:   fmt.Sprint(prog.ID),
+			startDate:      "",
+			endDate:        endDate.Format("2006-01-02"),
+			expectedStatus: http.StatusBadRequest,
+			expectedErrMsg: "Start date is required",
+		},
+		{
+			name:           "Missing end date",
+			programmerID:   fmt.Sprint(prog.ID),
+			startDate:      startDate.Format("2006-01-02"),
+			endDate:        "",
+			expectedStatus: http.StatusBadRequest,
+			expectedErrMsg: "End date is required",
+		},
+		{
+			name:           "Missing programmer ID",
+			programmerID:   "",
+			startDate:      startDate.Format("2006-01-02"),
+			endDate:        endDate.Format("2006-01-02"),
+			expectedStatus: http.StatusBadRequest,
+			expectedErrMsg: "Programmer ID is required",
+		},
+		{
+			name:           "Invalid programmer ID",
+			programmerID:   "invalid-id",
+			startDate:      startDate.Format("2006-01-02"),
+			endDate:        endDate.Format("2006-01-02"),
+			expectedStatus: http.StatusBadRequest,
+			expectedErrMsg: "Invalid programmer ID",
+		},
+		{
+			name:           "Programmer not found",
+			programmerID:   "99999",
+			startDate:      startDate.Format("2006-01-02"),
+			endDate:        endDate.Format("2006-01-02"),
+			expectedStatus: http.StatusNotFound,
+			expectedErrMsg: "Programmer not found",
+		},
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1055,9 +1127,16 @@ func TestGetMonthlyReportHandler(t *testing.T) {
 			if tt.expectedStatus == http.StatusOK {
 				var report MonthlySummary
 				err := json.NewDecoder(w.Body).Decode(&report)
-				assert.NoError(t, err)
-				assert.Equal(t, 5, report.TotalDaysPresent) // TODO also check total_early_departure_minutes and Equal for their expected value
-				// TODO here is the result of this query in DB: (programmer_id, total_days_present, total_overtime_minutes, total_delay_minutes, total_early_departure_minutes) = (1,28,410,360,300)
+				assert.NoError(t, err, "Failed to decode response body")
+
+				assert.Equal(t, tt.expectedReport.ProgrammerID, report.ProgrammerID, "unexpected programmerID")
+				assert.Equal(t, tt.expectedReport.TotalDaysPresent, report.TotalDaysPresent, "unexpected total day present")
+				assert.Equal(t, tt.expectedReport.TotalOvertimeMinutes, report.TotalOvertimeMinutes, "unexpected total overtime minutes.")
+				assert.Equal(t, tt.expectedReport.TotalDelayMinutes, report.TotalDelayMinutes, "unexpected total delay minutes")
+				assert.Equal(t, tt.expectedReport.TotalEarlyDepartures, report.TotalEarlyDepartures, "unexpected total early departure")
+			} else {
+				responseBody := strings.TrimSpace(w.Body.String())
+				assert.Contains(t, responseBody, tt.expectedErrMsg, "unexpected error message")
 			}
 		})
 	}
