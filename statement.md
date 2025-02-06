@@ -1,8 +1,25 @@
-تیم همکاران‌سیستم تصمیم گرفته سیستم ردیابی ساعات ورود و خروج خود را با قابلیت شخصی‌سازی برای تیم *HR* طراحی کند. همکاران که به **شدت** شرکت **منظمی** است و روی نظم کارمندان خود نیز حساس است از شما می‌خواهد برای ورود و استخدام به این شرکت و کمک به تیم منابع انسانی، بک‌اند سیستم ترکینگ ورود و خروج برنامه‌نویسان برای تهیه گزارش‌ها و محاسبه حقوق‌شان را پیاده‌سازی کنید.
+۰۰تیم همکاران‌سیستم تصمیم گرفته سیستم ردیابی ساعات ورود و خروج خود را با قابلیت شخصی‌سازی برای تیم *HR* طراحی کند. همکاران که به **شدت** شرکت **منظمی** است و روی نظم کارمندان خود نیز حساس است از شما می‌خواهد برای ورود و استخدام به این شرکت و کمک به تیم منابع انسانی، بک‌اند سیستم ترکینگ ورود و خروج برنامه‌نویسان برای تهیه گزارش‌ها و محاسبه حقوق‌شان را پیاده‌سازی کنید.
 
 # جزئیات پروژه
 
-پروژه اولیه را از %problem.initial_project% دانلود کنید. در این پروژه، شما باید قسمت‌های مشخص شده با `// TODO` را پیاده‌سازی کنید.
+پروژه اولیه را از %problem.initial_project% دانلود کنید. ساختار پروژه به شکل زیر است: 
+
+```shell
+.
+├── app
+│   ├── db.go
+│   ├── handlers.go   # TODO Implement
+│   ├── models.go     # TODO Implement
+│   ├── repository.go # TODO Implement
+│   └── server.go
+├── go.mod
+├── go.sum
+├── main.go
+├── test
+│   └── sample_test.go
+```
+
+در این پروژه، شما باید قسمت‌های مشخص شده با `// TODO` را پیاده‌سازی کنید. در نهایت شما از طریق اجرای فایل باینری `main.go` می‌توانید پروژه خود را اجرا کنید.
 
 ## مدل‌های پایگاه داده
 
@@ -62,7 +79,7 @@ func (ai *AttendanceInput) UnmarshalJSON(data []byte) error
 ```go
 func (a *Attendance) UnmarshalJSON(data []byte) error
 ```
-+ داده‌های JSON را به ساختار `Attendance` تبدیل می‌کند.
++ داده‌های *JSON* را به ساختار `Attendance` تبدیل می‌کند.
 
 + فیلدهای `date`، `check_in` و `check_out` از نوع رشته (`string`) دریافت می‌شوند و به نوع `time.Time` تبدیل می‌شوند.
 
@@ -74,6 +91,32 @@ func (a *Attendance) UnmarshalJSON(data []byte) error
 	+ `check_out`: `YYYY-MM-DD HH:MM:SS`
 
 + در صورت خطا در تبدیل فرمت‌ها، خطا برگردانده می‌شود.
+
+**خطاهای ممکن:**
+
++ اگر `date` فرمت نامعتبر داشته باشد، خطای `parsing time` با پیام `expected YYYY-MM-DD` برگردانده می‌شود.
+
++ اگر `check_in` یا `check_out` فرمت نامعتبر داشته باشند، خطای `parsing time` با پیام `expected YYYY-MM-DD HH:MM:SS` برگردانده می‌شود.
+
+**مثال ورودی معتبر:**
+```json
+{
+  "date": "2024-01-01",
+  "check_in": "2024-01-01 09:00:00",
+  "check_out": "2024-01-01 17:00:00",
+  "programmer_id": 1
+}
+```
+**مثال ورودی نامعتبر:**
+
+```json
+{
+  "date": "01-01-2024",
+  "check_in": "09:00:00",
+  "check_out": "2024-01-01 17:00:00",
+  "programmer_id": 1
+}
+```
 
 </details>
 
@@ -99,6 +142,18 @@ func (a Attendance) MarshalJSON() ([]byte, error)
 
 + در صورت خطا در تبدیل، خطا برگردانده می‌شود.
 
+**مثال خروجی:**
+
+```json
+{
+  "id": 1,
+  "programmer_id": 1,
+  "date": "2024-01-01",
+  "check_in": "2024-01-01 09:00:00",
+  "check_out": "2024-01-01 17:00:00"
+}
+```
+
 </details>
 
 <details class="blue">
@@ -117,7 +172,36 @@ func (i *AttendanceInput) UnmarshalJSON(data []byte) error
 
 + در صورت خطا در تبدیل فرمت‌ها یا عدم وجود فیلد `date`، خطا برگردانده می‌شود.
 
+**خطاهای ممکن:**
+
++ اگر `date` وجود نداشته باشد، خطای `date field is necessary` برگردانده می‌شود.
+
++ اگر `date` فرمت نامعتبر داشته باشد، خطای `invalid date format, expected YYYY-MM-DD` برگردانده می‌شود.
+
++ اگر `check_in` یا `check_out` فرمت نامعتبر داشته باشند، خطای `invalid check_in/check_out format, expected YYYY-MM-DD HH:MM:SS` برگردانده می‌شود.
+
+**مثال ورودی معتبر:**
+
+```json
+{
+  "date": "2024-01-01",
+  "check_in": "2024-01-01 09:00:00",
+  "check_out": "2024-01-01 17:00:00"
+}
+```
+**مثال ورودی نامعتبر:**
+
+```json
+{
+  "date": "2024/01/01",
+  "check_in": "09:00:00"
+}
+```
+
 </details>
+
+
+**نکته:** برای یکتا بودن `ProgrammerID` و `Date` در  `Attendance` می‌توانید از ایندکس کمک بگیرید.
 
 ### هندلرها
 
@@ -145,6 +229,10 @@ func RegisterRoutes(mux *http.ServeMux) {
 هندلر `CreateAttendanceHandler`
 </summary>
 
+توضیح:
+
+این هندلر برای ثبت حضور و غیاب برنامه‌نویسان است. ابتدا داده‌های ورودی را از ریکوئست دریافت کرده و اعتبار آن‌ها را بررسی می‌کند (مانند فرمت درست، وجود فیلد تاریخ، و ترتیب ورود و خروج). در صورت معتبر بودن، اطلاعات حضور را در سیستم ذخیره کرده و پاسخ مناسب ارسال می‌کند.
+
 + متد: `POST`
 + اندپوینت یا مسیر: `/attendance`
 + ورودی: بدنه *JSON* شامل:
@@ -161,7 +249,8 @@ func RegisterRoutes(mux *http.ServeMux) {
 
 + در صورت دیکد نشدن *JSON* باید `Invalid input format` را با وضعیت 400 برگردانید.
 + در صورت عدم وجود فیلد تاریخ یا `date` باید `Missing required field: date` را با وضعیت 400 برگردانید.
-+ در صورتی که `programmer_id` ارسال‌شده در دیتایس موجود نبود باید پیام`Programmer not found! Please hire the programmer first`. را با وضعیت 404 برگردانید.
++ در صورتی که ساعت خروج قبل از ساعت ورود بود، باید پیام `CheckOut cannot be before CheckIn` را با وضعیت 400 برگردانید.
++ در صورتی که `programmer_id` ارسال‌شده در دیتایس موجود نبود باید پیام `Programmer not found! Please hire the programmer first`. را با وضعیت 404 برگردانید.
 
 پاسخ موفقیت‌آمیز:
 
@@ -171,12 +260,16 @@ func RegisterRoutes(mux *http.ServeMux) {
 
 پاسخ خطا:
 
-+ وضعیت: 500 با پیام `Failed to create attendance:`  + پیام خطا
++ وضعیت: 500 با پیام `Failed to create attendance:`  + پیام خطا (اگر رکوردی با همان `programmer_id` و `date` وجود داشته باشد، باید `Duplicate attendance record` را برگرداند که شما این مورد را در لایه‌ی ریپوزیتوری هندل می‌کنید)
 
 </details>
 
 
 <details class="blue"> <summary> هندلر `GetAttendanceHandler` </summary>
+
+توضیح:
+
+این هندلر برای دریافت سوابق حضور و غیاب یک برنامه‌نویس خاص است. ابتدا شناسه برنامه‌نویس را از مسیر URL استخراج کرده و اعتبارسنجی می‌کند. سپس، اگر داده‌ای موجود باشد، سوابق حضور را در قالب JSON برمی‌گرداند، در غیر این صورت پیام خطای مناسب ارسال می‌شود.
 
 -   متد: `GET`
 
@@ -209,11 +302,15 @@ func RegisterRoutes(mux *http.ServeMux) {
 هندلر `UpdateAttendanceHandler`
 </summary>
 
+توضیح:
+
+این هندلر برای به‌روزرسانی اطلاعات حضور و غیاب یک برنامه‌نویس است. ابتدا شناسه برنامه‌نویس و تاریخ موردنظر را بررسی کرده و در صورت وجود، اطلاعات جدید (مانند ورود و خروج) را ثبت می‌کند. اگر داده‌ای نامعتبر باشد یا رکورد حضور قبلاً ثبت نشده باشد، پیام خطای مناسب ارسال می‌شود.
+
 + متد: `PUT`
 
 + اندپوینت یا مسیر: `/attendance/{programmer_id}`
 
-+ ورودی: بدنه _JSON_ شامل:
++ ورودی: بدنه _JSON_ دو فیلد ورود و خروج به صورت **اختیاری**:
 
 ```json
 {
@@ -223,16 +320,30 @@ func RegisterRoutes(mux *http.ServeMux) {
 }
 ```
 اعتبارسنجی:
+ 
 
-+ اگر `programmer_id` نامعتبر باشد (مثلاً عددی نباشد یا کمتر از ۱ باشد)، باید `Invalid ID` را با وضعیت 400 برگردانید.
++ اگر `programmer_id` نامعتبر باشد (مثلاً عددی نباشد یا کمتر از ۱ باشد)، باید `Invalid Programmer ID"` را با وضعیت 400 برگردانید.
 
 + اگر `programmer_id` در دیتابیس وجود نداشته باشد، باید `Programmer not found` را با وضعیت 404 برگردانید.
 
++ اگر فیلد date یا programmer_id اارسال نشوند باید پیام `Programmer ID is required` و `Date is required`  با وضعیت 400 برگردانید.
+
 + اگر `date` ارسال‌شده برای `programmer_id` موجود نباشد، باید `Programmer with the given date not recorded. Please use CreateAttendanceHandler to create it!` را با وضعیت 400 برگردانید.
++ اگر تاریخ خروج قبل از تاریخ ورود باشد، باید `CheckIn cannot be after CheckOut` را با وضعیت 400 برگردانید.
 
 پاسخ موفقیت‌آمیز:
 
 + وضعیت: 200 (موفق)
++ `Content-Type`: `application/json`
++ `Body`: گزارش `GirinofReport` به شکل زیر:
+
+```json
+{
+  "programmer_id": "1",
+  "total_delays": 2,
+  "total_early_departures": 3
+}
+```
 
 پاسخ خطا:
 
@@ -246,6 +357,10 @@ func RegisterRoutes(mux *http.ServeMux) {
 هندلر `DeleteAttendanceHandler`
 </summary>
 
+توضیح:
+
+این هندلر برای حذف سوابق حضور و غیاب یک برنامه‌نویس است. ابتدا شناسه برنامه‌نویس را بررسی کرده و در صورت معتبر بودن، رکورد یا رکورهای حضور مربوطه را حذف می‌کند. در صورت نامعتبر بودن شناسه یا بروز خطا، پیام خطای مناسب ارسال می‌شود.
+
 + متد: `DELETE`
 
 + اندپوینت یا مسیر: `/attendance/{programmer_id}`
@@ -255,6 +370,9 @@ func RegisterRoutes(mux *http.ServeMux) {
 اعتبارسنجی:
 
 + اگر `programmer_id` نامعتبر باشد (مثلاً عددی نباشد یا کمتر از ۱ باشد)، باید `Invalid programmer ID` را با وضعیت 400 برگردانید.
++ اگر برنامه‌نویسی با آیدی متناظر با `programmer_id` موجود نباشد، باید `Programmer not found` را با وضعیت 404 برگردانید.
+
++ اگر `date` در قالب `YYYY-MM-DD` نباشد، باید `Invalid date format` را با وضعیت **400** برگرداند. (این مورد را در بخش  توابع `Marshal/Unmarshal` جیسون هندل می‌کنید)
 
 پاسخ موفقیت‌آمیز:
 
@@ -271,6 +389,10 @@ func RegisterRoutes(mux *http.ServeMux) {
 هندلر `DeleteOneDayAttendanceHandler`
 </summary>
 
+توضیح:
+
+این هندلر برای حذف سوابق حضور و غیاب یک برنامه‌نویس در یک تاریخ مشخص است. ابتدا شناسه برنامه‌نویس و تاریخ را از مسیر URL دریافت کرده و بررسی می‌کند. در صورت معتبر بودن و وجود رکورد، آن را حذف می‌کند؛ در غیر این صورت، پیام خطای مناسب ارسال می‌شود.
+
 + متد: `DELETE`
 
 + اندپوینت یا مسیر: `/attendance/{programmer_id}/{date}`
@@ -285,6 +407,7 @@ func RegisterRoutes(mux *http.ServeMux) {
 + اگر `programmer_id` نامعتبر باشد (مثلاً عددی نباشد یا کمتر از ۱ باشد)، باید `Invalid programmer ID` را با وضعیت 400 برگردانید.
 
 + اگر `date` فرمت نامعتبر داشته باشد، باید `Invalid Date` را با وضعیت 400 برگردانید.
++ اگر `programmer_id` یا `date` مورد نظر وجود نداشت، باید `No attendance record found for the given date` با وضعیت 404 را بازگردانید.
 
 پاسخ موفقیت‌آمیز:
 
@@ -300,6 +423,10 @@ func RegisterRoutes(mux *http.ServeMux) {
 <summary>
 هندلر `GetAllAttendanceHandler`
 </summary>
+
+توضیح:
+
+این هندلر برای دریافت تمامی سوابق حضور و غیاب است. ابتدا تمام داده‌های حضور را از پایگاه‌داده واکشی کرده و در قالب JSON بازمی‌گرداند. در صورت بروز خطا در دریافت اطلاعات، پیام خطای مناسب ارسال می‌شود.
 
 + متد: `GET`
 
@@ -330,9 +457,13 @@ func RegisterRoutes(mux *http.ServeMux) {
 هندلر `GetGirinofReportHandler`
 </summary>
 
+توضیح:
+
+این هندلر برای دریافت گزارش حضور و غیاب یک برنامه‌نویس در یک تاریخ مشخص است. ابتدا شناسه برنامه‌نویس و تاریخ را بررسی کرده و در صورت وجود اطلاعات، گزارش را تولید و در قالب *JSON* بازمی‌گرداند. در صورت عدم وجود داده یا خطای پردازش، پیام خطای مناسب ارسال می‌شود.
+
 + متد: `GET`
 
-+ اندپوینت یا مسیر: `/report/girinof/{programmer_id}/{date}`
++ اندپوینت یا مسیر: `/girinof/{programmer_id}/{date}`
 
 + ورودی:
 	+ `programmer_id` به عنوان پارامتر مسیر
@@ -341,7 +472,13 @@ func RegisterRoutes(mux *http.ServeMux) {
 
 اعتبارسنجی:
 
-+ اگر `programmer_id` یا `date` ارسال‌نشده باشد، باید `Programmer ID is required` یا `Invalid Date` را با وضعیت 400 برگردانید.
++ اگر `programmer_id` ارسال‌نشده باشد، باید `Programmer ID is required` را با وضعیت **400** برگرداند.
++ اگر `date` ارسال‌نشده باشد، باید `Date is required` را با وضعیت **400** برگرداند.
++ اگر `date` فرمت نامعتبر داشته باشد، باید `Invalid Date` را با وضعیت **400** برگرداند.
++ اگر `programmer_id` عدد نباشد یا کمتر از ۱ باشد، باید `Invalid Programmer ID` را با وضعیت **400** برگرداند.
++ اگر برنامه‌نویس با `programmer_id` داده‌شده وجود نداشته باشد، باید `Programmer not found` را با وضعیت **404** برگرداند.
++ اگر رکورد حضور برای `programmer_id` و `date` داده‌شده وجود نداشته باشد، باید `Programmer with the given date not recorded. Please use CreateAttendanceHandler to create it!` را با وضعیت **400** برگرداند.
+
 
 پاسخ موفقیت‌آمیز:
 
@@ -362,6 +499,10 @@ func RegisterRoutes(mux *http.ServeMux) {
 هندلر `GetMonthlyReportHandler`
 </summary>
 
+توضیح:
+
+این هندلر برای دریافت گزارش حضور و غیاب یک برنامه‌نویس در یک بازه زمانی مشخص است. ابتدا شناسه برنامه‌نویس، تاریخ شروع و پایان را بررسی کرده و در صورت معتبر بودن، گزارش را تولید و در قالب *JSON* بازمی‌گرداند. در صورت نامعتبر بودن ورودی‌ها یا بروز خطا، پیام خطای مناسب ارسال می‌شود.
+
 + متد: `GET`
 
 + اندپوینت یا مسیر: `/report/monthly/{programmer_id}/{start_date}/{end_date}`
@@ -373,9 +514,13 @@ func RegisterRoutes(mux *http.ServeMux) {
 
 اعتبارسنجی:
 
-+ اگر `programmer_id`، `start_date` یا `end_date` ارسال‌نشده باشد، باید `Programmer ID is required` یا `Invalid Date` را با وضعیت 400 برگردانید.
++ اگر `programmer_id` ارسال‌نشده باشد، باید `Programmer ID is required` را با وضعیت **400** برگرداند.
++ اگر `start_date` یا `end_date` ارسال‌نشده باشد، باید `Start date is required` یا `End date is required` را با وضعیت **400** برگرداند.
++ اگر `programmer_id` عدد نباشد یا کمتر از ۱ باشد، باید `Invalid programmer ID` را با وضعیت **400** برگرداند.
++ اگر `start_date` یا `end_date` فرمت نامعتبر داشته باشند، باید `Invalid start date format` یا `Invalid end date format` را با وضعیت **400** برگرداند.
++ اگر `end_date` قبل از `start_date` باشد، باید `End date cannot be before start date` را با وضعیت **400** برگرداند.
++ اگر برنامه‌نویس با `programmer_id` داده‌شده وجود نداشته باشد، باید `Programmer not found` را با وضعیت **404** برگرداند.
 
-+ اگر `end_date` قبل از `start_date` باشد، باید `End date must be after start date` را با وضعیت 400 برگردانید.
 
 پاسخ موفقیت‌آمیز:
 
@@ -383,7 +528,17 @@ func RegisterRoutes(mux *http.ServeMux) {
 
 + `Content-Type`: `application/json`
 
-+ `Body`: گزارش ماهانه
++ `Body`: گزارش `MonthlySummary` به شکل زیر:
+
+```json
+{
+  "programmer_id": "1",
+  "total_days_present": 4,
+  "total_overtime_minutes": 3,
+  "total_delay_minutes": 2,
+  "total_early_departure_minutes": 1
+}
+```
 
 پاسخ خطا:
 
@@ -397,6 +552,10 @@ func RegisterRoutes(mux *http.ServeMux) {
 هندلر `GetSalaryHandler`
 </summary>
 
+توضیح:
+
+این هندلر برای محاسبه حقوق یک برنامه‌نویس در ۳۰ روز گذشته است. ابتدا شناسه برنامه‌نویس را بررسی کرده و در صورت معتبر بودن، حقوق او را بر اساس سوابق حضور و غیاب محاسبه و در قالب *JSON* بازمی‌گرداند. در صورت عدم وجود اطلاعات یا بروز خطا، پیام خطای مناسب ارسال می‌شود.
+
 + متد: `GET`
 
 + اندپوینت یا مسیر: `/salary/{programmer_id}`
@@ -405,7 +564,10 @@ func RegisterRoutes(mux *http.ServeMux) {
 
 اعتبارسنجی:
 
-+ اگر `programmer_id` ارسال‌نشده باشد، باید `Programmer ID is required` را با وضعیت 400 برگردانید.
++ اگر `programmer_id` ارسال‌نشده باشد، باید `Programmer ID is required` را با وضعیت **400** برگرداند.
++ اگر `programmer_id` عدد نباشد یا کمتر از ۱ باشد، باید `Invalid programmer ID` را با وضعیت **400** برگرداند.
++ اگر برنامه‌نویس با `programmer_id` داده‌شده وجود نداشته باشد، باید `Programmer not found` را با وضعیت **404** برگرداند.
+
 
 پاسخ موفقیت‌آمیز:
 
@@ -413,7 +575,27 @@ func RegisterRoutes(mux *http.ServeMux) {
 
 + `Content-Type`: `application/json`
 
-+ `Body`: حقوق محاسبه‌شده برای ۳۰ روز گذشته
++ `Body`: گزارش `SalaryReport` به شکل زیر:
+
+```json
+{
+  "name": "Younes Sinwar",
+  "total_days_present": 30,
+  "total_overtime_minutes": 1,
+  "total_delay_minutes": 2,
+  "total_early_departure_minutes": 3,
+  "total_salary": 3000.0
+}
+```
+محاسبه حقوق: حقوق بر اساس فرمول زیر محاسبه می‌شود:
+
+    حقوق پایه = تعداد روزهای حضور × DailyRate (۱۰۰)
+
+    اضافه‌کاری = مجموع دقیقه‌های اضافه‌کاری × OvertimeRate (۲۰)
+
+    جریمه تاخیر = مجموع دقیقه‌های تاخیر × DelayPenalty (۱۰)
+
+    حقوق نهایی = حقوق پایه + اضافه‌کاری - جریمه تاخیر
 
 پاسخ خطا:
 
@@ -425,6 +607,10 @@ func RegisterRoutes(mux *http.ServeMux) {
 <summary>
 هندلر `CreateProgrammerHandler`
 </summary>
+
+توضیح:
+
+این هندلر برای ایجاد یک برنامه‌نویس جدید در سیستم است. ابتدا داده‌های ورودی را بررسی کرده و در صورت معتبر بودن، برنامه‌نویس را در پایگاه داده ثبت می‌کند. در صورت بروز خطا یا نامعتبر بودن اطلاعات، پیام خطای مناسب ارسال می‌شود.
 
 + متد: `POST`
 
@@ -440,6 +626,7 @@ func RegisterRoutes(mux *http.ServeMux) {
 اعتبارسنجی:
 
 + اگر `name` ارسال‌نشده باشد، باید `Invalid input format` را با وضعیت 400 برگردانید.
++ + اگر فیلد `name` خالی باشد، باید `Name is required` را با وضعیت 400 برگردانید.
 
 پاسخ موفقیت‌آمیز:
 
@@ -455,6 +642,7 @@ func RegisterRoutes(mux *http.ServeMux) {
 
 </details>
 
++ در تمام هندلرها اگر خطای داخلی سرور رخ دهد، باید وضعیت **500** برگردانده شود.
 
 ### توابع Repository
 
@@ -467,9 +655,9 @@ func (repo *Repository) GetAllAttendance() ([]Attendance, error)
 func (repo *Repository) UpdateAttendance(attendance *Attendance) error
 func (repo *Repository) DeleteAttendance(pid uint) error
 func (repo *Repository) DeleteOneDayAttendance(pid uint, date time.Time) error
-func (repo *Repository) GetGirinofReport(id string, date time.Time) (*GirinofReport, error)
-func (repo *Repository) GetMonthlyReport(id string, startDate, endDate time.Time) (*MonthlySummary, error)
-func (repo *Repository) CalculateSalary(id string, startDate, endDate time.Time) (*SalaryReport, error)
+func (repo *Repository) GetGirinofReport(pid uint, date time.Time) (*GirinofReport, error)
+func (repo *Repository) GetMonthlyReport(pid uint, startDate, endDate time.Time) (*MonthlySummary, error)
+func (repo *Repository) CalculateSalary(pid uint, startDate, endDate time.Time) (*SalaryReport, error)
 func (repo *Repository) CreateProgrammer(name string) (*Programmer, error)
 func (repo *Repository) GetProgrammerByID(id uint) (*Programmer, error)
 func (repo *Repository) IsExistDateAndProgrammerID(id uint, date time.Time) (*Attendance, bool)
@@ -477,15 +665,21 @@ func (repo *Repository) IsExistDateAndProgrammerID(id uint, date time.Time) (*At
 
 <details class="blue">
 <summary>
-تابع `CreateAttendance`
+متد `CreateAttendance`
 </summary>
 
 ```go
 func (repo *Repository) CreateAttendance(attendance *Attendance) error
 ```
 
-+ رکورد  `Attendance` جدیدی ایجاد می‌کند.
-+ اگر عملیات `Create` ناموفق باشد، خطا را برمی‌گرداند.
++ رکورد `Attendance` جدیدی با تمام فیلدهای الزامی ایجاد می‌کند
+
++ در صورت وجود `attendance` تکراری (با همان `ProgrammerID` و `Date`) خطا برمی‌گرداند
+
++ آی‌دی تولید شده برای رکورد جدید باید غیرصفر باشد
+
++ در صورت خطا در عملیات پایگاه داده، خطا را برمی‌گرداند
+
 
 </details>
 
@@ -499,13 +693,16 @@ func (repo *Repository) CreateAttendance(attendance *Attendance) error
 func (repo *Repository) GetAttendancesByProgrammer(pid uint) ([]Attendance, error)
 ```
 
-+ لیست تمامی رکوردهای حضور و غیاب مربوط به یک برنامه‌نویس خاص را برمی‌گرداند.
++ لیست تمام رکوردهای حضور و غیاب یک برنامه‌نویس را برمی‌گرداند
 
-+ رکوردها بر اساس تاریخ (`date`) به صورت نزولی مرتب می‌شوند.
++ نتایج باید بر اساس تاریخ (`date`) به صورت نزولی مرتب شوند
 
-+ حداکثر ۱۲ رکورد بازگردانده می‌شود.
++ حداکثر ۱۲ رکورد بازگردانده شود
 
-+ در صورت خطا، خطا را برمی‌گرداند.
++ در صورت عدم وجود رکورد، لیست خالی برمی‌گرداند
+
++ در صورت خطا در عملیات پایگاه داده، خطا را برمی‌گرداند
+
 
 </details>
 
@@ -520,6 +717,8 @@ func (repo *Repository) GetAllAttendance() ([]Attendance, error)
 ```
 + لیست تمامی رکوردهای حضور و غیاب موجود در پایگاه داده را برمی‌گرداند.
 
++  در صورت عدم وجود رکورد، لیست خالی برمی‌گرداند
+
 + در صورت خطا، خطا را برمی‌گرداند.
 
 </details>
@@ -532,11 +731,14 @@ func (repo *Repository) GetAllAttendance() ([]Attendance, error)
 ```go
 func (repo *Repository) UpdateAttendance(attendance *Attendance) error
 ```
-+ رکورد حضور و غیاب موجود را به‌روزرسانی می‌کند.
++ رکورد موجود را با مقادیر جدید به‌روزرسانی می‌کند
 
-+ فیلدهای `date`، `check_in` و `check_out` به‌روزرسانی می‌شوند.
++ فیلدهای قابل به‌روزرسانی: `date`، `check_in` و `check_out`
 
-+ در صورت خطا، خطا را برمی‌گرداند.
++ در صورت عدم وجود رکورد مرتبط، خطا برمی‌گرداند
+
++ در صورت خطا در عملیات پایگاه داده، خطا را برمی‌گرداند
+
 
 </details>
 
@@ -548,9 +750,12 @@ func (repo *Repository) UpdateAttendance(attendance *Attendance) error
 ```go
 func (repo *Repository) DeleteAttendance(pid uint) error
 ```
-+ تمامی رکوردهای حضور و غیاب مربوط به یک برنامه‌نویس خاص را حذف می‌کند.
++ تمام رکوردهای حضور و غیاب مربوط به یک برنامه‌نویس را حذف می‌کند
 
-+ در صورت خطا، خطا را برمی‌گرداند.
++ پس از حذف، هیچ رکوردی با ProgrammerID مربوطه نباید وجود داشته باشد
+
++ در صورت خطا در عملیات پایگاه داده، خطا را برمی‌گرداند
+
 
 </details>
 
@@ -562,9 +767,13 @@ func (repo *Repository) DeleteAttendance(pid uint) error
 ```go
 func (repo *Repository) DeleteOneDayAttendance(pid uint, date time.Time) error
 ```
-+ رکورد حضور و غیاب مربوط به یک برنامه‌نویس خاص در یک تاریخ مشخص را حذف می‌کند.
++ رکورد حضور و غیاب مربوط به یک روز خاص را حذف می‌کند
 
-+ در صورت خطا، خطا را برمی‌گرداند.
++ تاریخ باید دقیقاً مطابقت داشته باشد (برای انجام این کار تمامی رکوردهای تاریخ آن روز را از ساعت `00:00:00` تا ساعت `24:00:00` حذف کنید. می‌توانید از `date.Truncate` استفاده کنید)
+
++ در صورت عدم وجود رکورد، خطا برمی‌گرداند
+
++ در صورت خطا در عملیات پایگاه داده، خطا را برمی‌گرداند
 
 </details>
 
@@ -574,13 +783,17 @@ func (repo *Repository) DeleteOneDayAttendance(pid uint, date time.Time) error
 </summary>
 
 ```go
-
+func (repo *Repository) GetGirinofReport(pid uint, date time.Time) (*GirinofReport, error)
 ```
-+ گزارش `GirinofReport` را برای یک برنامه‌نویس خاص در یک تاریخ مشخص ایجاد می‌کند.
 
-+ این گزارش شامل مجموع دقیقه‌های تاخیر (`total_delay_minutes`) و مجموع دقیقه‌های خروج زودهنگام (`total_early_departure_minutes`) است.
++ گزارش روزانه شامل مجموع تاخیرها (`total_delay_minutes`) و خروج‌های زودهنگام (`total_early_departure_minutes`) را همراه با `programmer_id` ایجاد می‌کند
 
-+ در صورت خطا، خطا را برمی‌گرداند.
++ محاسبات باید بر اساس اختلاف زمانی با ساعت استاندارد (۹:۰۰-۱۷:۰۰) انجام شود
+
++ در صورت عدم وجود رکورد در تاریخ مشخص، خطا برمی‌گرداند
+
++ در صورت خطا در محاسبات یا عملیات پایگاه داده، خطا را برمی‌گرداند
+
 
 </details>
 
@@ -592,11 +805,12 @@ func (repo *Repository) DeleteOneDayAttendance(pid uint, date time.Time) error
 ```go
 func (repo *Repository) GetMonthlyReport(id string, startDate, endDate time.Time) (*MonthlySummary, error)
 ```
-+ گزارش ماهانه (`MonthlySummary`) را برای یک برنامه‌نویس خاص در بازه زمانی مشخص ایجاد می‌کند.
++ گزارش ماهانه شامل آمار حضور، اضافه‌کاری و تاخیرها را در بازه زمانی داده شده ایجاد می‌کند
 
-+ این گزارش شامل تعداد روزهای حضور (`total_days_present`)، مجموع دقیقه‌های اضافه‌کاری (`total_overtime_minutes`)، مجموع دقیقه‌های تاخیر (`total_delay_minutes`) و مجموع دقیقه‌های خروج زودهنگام (`total_early_departure_minutes`) است.
++ این گزارش شامل آی‌دی برنامه‌نویس (`programmer_id`) تعداد روزهای حضور (`total_days_present`)، مجموع دقیقه‌های اضافه‌کاری (`total_overtime_minutes`)، مجموع دقیقه‌های تاخیر (`total_delay_minutes`) و مجموع دقیقه‌های خروج زودهنگام (`total_early_departure_minutes`) است.
 
-+ در صورت خطا، خطا را برمی‌گرداند.
++ در صورت خطا در محاسبات یا عملیات پایگاه داده، خطا را برمی‌گرداند
+
 
 </details>
 
@@ -608,11 +822,21 @@ func (repo *Repository) GetMonthlyReport(id string, startDate, endDate time.Time
 ```go
 func (repo *Repository) CalculateSalary(id string, startDate, endDate time.Time) (*SalaryReport, error)
 ```
-+ حقوق (`SalaryReport`) یک برنامه‌نویس خاص را در بازه زمانی مشخص محاسبه می‌کند.
++ حقوق (`SalaryReport`) یک برنامه‌نویس خاص را در سی روز گذشته محاسبه می‌کند.
 
-+ حقوق بر اساس تعداد روزهای حضور (`total_days_present`)، دقیقه‌های اضافه‌کاری (`total_overtime_minutes`) و جریمه تاخیر (`total_delay_minutes`) محاسبه می‌شود.
++  حقوق خالص را بر اساس فرمول زیر محاسبه می‌کند:
 
-+ در صورت خطا، خطا را برمی‌گرداند.
+	+ حقوق پایه = تعداد روزهای حضور × نرخ روزانه (`DailyRate`)
+
+	+ اضافه‌کاری = مجموع دقیقه‌های اضافه‌کاری × نرخ اضافه‌کاری (`OvertimeRate`)
+
+	+ جریمه تاخیر = مجموع دقیقه‌های تاخیر × نرخ جریمه (`DelayPenalty`)
+
+	+ حقوق نهایی = حقوق پایه + اضافه‌کاری - جریمه تاخیر
+
++ این گزارش شامل نام برنامه‌نویس (`name`)، تعداد روزهای حضور (`total_days_present`)، مجموع دقیقه‌های اضافه‌کاری (`total_overtime_minutes`)، مجموع دقیقه‌های تاخیر (`total_delay_minutes`)، مجموع دقیقه‌های خروج زودهنگام (`total_early_departure_minutes`) و مجموع حقوق (`total_salary`) است.
+
++  در صورت خطا در محاسبات یا عملیات پایگاه داده، خطا را برمی‌گرداند
 
 </details>
 
@@ -625,8 +849,8 @@ func (repo *Repository) CalculateSalary(id string, startDate, endDate time.Time)
 func (repo *Repository) CreateProgrammer(name string) (*Programmer, error)
 ```
 + یک برنامه‌نویس جدید ایجاد می‌کند.
-
-+ در صورت خطا، خطا را برمی‌گرداند.
++  آی‌دی تولید شده باید غیرصفر باشد
++  در صورت خطا در عملیات پایگاه داده، خطا را برمی‌گرداند
 
 </details>
 
@@ -638,9 +862,12 @@ func (repo *Repository) CreateProgrammer(name string) (*Programmer, error)
 ```go
 func (repo *Repository) GetProgrammerByID(id uint) (*Programmer, error)
 ```
-+ اطلاعات یک برنامه‌نویس خاص را بر اساس `id` برمی‌گرداند.
++ اطلاعات کامل برنامه‌نویس را بر اساس ID برمی‌گرداند
 
-+ در صورت خطا، خطا را برمی‌گرداند.
++ در صورت عدم وجود برنامه‌نویس با ID داده شده، خطا برمی‌گرداند
+
++ در صورت خطا در عملیات پایگاه داده، خطا را برمی‌گرداند
+
 
 </details>
 
@@ -654,9 +881,14 @@ func (repo *Repository) IsExistDateAndProgrammerID(id uint, date time.Time) (*At
 ```
 + بررسی می‌کند که آیا رکورد حضور و غیاب برای یک برنامه‌نویس خاص در تاریخ مشخص وجود دارد یا خیر.
 
-+ اگر رکورد وجود داشته باشد، آن را برمی‌گرداند و `true` را به عنوان نتیجه برمی‌گرداند.
++ تاریخ باید دقیقاً مطابقت داشته باشد (برای انجام این کار تمامی رکوردهای تاریخ آن در آن روز یعنی از ساعت `00:00:00` تا ساعت `24:00:00` را بررسی کنید)
 
-+ اگر رکورد وجود نداشته باشد، `nil` و `false` را برمی‌گرداند.
++  در صورت وجود، رکورد کامل را همراه با `true` برمی‌گرداند
+
++  در صورت عدم وجود، `nil` و `false` برمی‌گرداند
+
++  تاریخ باید دقیقاً مطابقت داشته باشد (با در نظر گرفتن ساعت ۰۰:۰۰:۰۰)
+
 
 </details>
 
@@ -667,12 +899,17 @@ func (repo *Repository) IsExistDateAndProgrammerID(id uint, date time.Time) (*At
 
 + فایل `db.go` برای اتصال *GORM* به پایگاه داده با استفاده از الگوی طراحی *singleton* است. شما نیازی به تغییر آن ندارید به جز تغییر ثابت‌ها برای تست روی محیط لوکال خود.
 
++ فایل‌ها و کدهای پروژه‌اولیه را نباید تغییر بدهید و صرفا باید مکان‌هایی که با کامنت `// TODO Implement` برای شما مشخص شده را پیاده‌سازی کنید.
+
++ نیازی به ارسال فایل‌های `go.mod` و `go.sum` ندارید! 
+
 **چه چیزی را آپلود کنید**
 
-پس از پیاده‌سازی ویژگی‌های خواسته‌شده،‌ کل پروژه را به صورت زیپ ارسال کنید.
+پس از پیاده‌سازی ویژگی‌های خواسته‌شده،‌ **فقط** دایرکتوری `app` که شامل سه فایل `handlers.go` و `models.go` و `repository.go` است را فشرده کرده و صورت زیپ ارسال کنید.
 فایل‌هایی که نیاز به ویرایش دارند:
 
-+ `models.go‍`
-+ `handlers.go`
-+ `repository.go`
++ `app/models.go‍`
++ `app/handlers.go`
++ `app/repository.go`
+
 
