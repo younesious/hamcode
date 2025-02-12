@@ -26,7 +26,7 @@ func RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /attendance/{programmer_id}/{date}", DeleteOneDayAttendanceHandler)
 	mux.HandleFunc("GET /attendance", GetAllAttendanceHandler)
 
-	mux.HandleFunc("GET /girinof/{programmer_id}/{date}", GetGirinofReportHandler)
+	mux.HandleFunc("GET /girinof/{programmer_id}/{date}", GetGirinofReportHandler) // TODO I can more orginize and naming base on REST 3 endpoints, maybe never :)
 	mux.HandleFunc("GET /report/monthly/{programmer_id}/{start_date}/{end_date}", GetMonthlyReportHandler)
 	mux.HandleFunc("GET /salary/{programmer_id}", GetSalaryHandler)
 
